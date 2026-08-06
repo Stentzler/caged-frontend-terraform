@@ -1,0 +1,34 @@
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+[sandbox_workspace_write]
+writable_roots = [
+"/home/vinicius/Projects/AWS/PORTFOLIO_SERVERLESS/caged-frontend-next",
+"/home/vinicius/Projects/AWS/PORTFOLIO_SERVERLESS/caged-aws-iac"
+]
+
+[mcp_servers.aws_iac]
+command = "uvx"
+args = ["awslabs.aws-iac-mcp-server@latest"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[mcp_servers.aws_iac.env]
+FASTMCP_LOG_LEVEL = "ERROR"
+AWS_REGION = "us-east-1"
+
+[mcp_servers.aws_docs]
+command = "uvx"
+args = ["awslabs.aws-documentation-mcp-server@latest"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+
+[mcp_servers.aws_docs.env]
+FASTMCP_LOG_LEVEL = "ERROR"
+AWS_DOCUMENTATION_PARTITION = "aws"
+AWS_REGION = "us-east-1"
+
+[mcp_servers.terraform]
+command = "docker"
+args = ["run", "-i", "--rm", "hashicorp/terraform-mcp-server:0.5.1", "--toolsets=registry"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
