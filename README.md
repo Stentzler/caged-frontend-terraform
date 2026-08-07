@@ -21,3 +21,10 @@ keeping this frontend's modules domain-sized rather than creating thin wrappers.
 
 See `SPEC.md` for the approved architecture and `AGENTS.md` for implementation
 and validation rules.
+
+## Remote state
+
+The standalone `bootstrap/` root creates the protected S3 state bucket. After
+bootstrapping, initialize the development root with the generated bucket name
+and the uncommitted `environments/dev/backend.hcl` configuration. Native S3
+lockfiles are enabled; DynamoDB locking is not used.

@@ -1,1 +1,4 @@
-# Copy to backend.hcl and provide the development state backend settings.
+# Copy to backend.hcl and replace the bucket value with bootstrap output.
+bucket = "caged-frontend-terraform-state-123456789012"
+key    = "caged-frontend/dev/terraform.tfstate"
+region = "us-east-1"

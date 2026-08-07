@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and provide non-secret bootstrap settings.
+# terraform.tfvars is ignored by Git, so account-specific choices stay local.
+aws_region   = "us-east-1"
+project_name = "caged-frontend"
+
+# Optional: override the account-derived bucket name with a globally unique name.
+# state_bucket_name = "caged-frontend-terraform-state-123456789012"
+
+common_tags = {
+  # These supplement the mandatory tags defined in locals.tf.
+  Owner      = "platform"
+  CostCenter = "engineering"
+}
