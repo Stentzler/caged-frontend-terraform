@@ -65,6 +65,44 @@ variable "availability_zone" {
   }
 }
 
+# The Lambda is owned and released by the backend Terraform repository. Keeping
+# its qualified alias ARN as an environment input makes this cross-repository
+# dependency explicit and prevents an unqualified function ARN from bypassing
+# the backend team's release alias.
+variable "query_lambda_alias_arn" {
+  description = "Qualified alias ARN of the existing query Lambda invoked by the frontend EC2 role."
+  type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws(?:-[a-z]+)*:lambda:[a-z]{2}(-gov)?-[a-z]+-[0-9]+:[0-9]{12}:function:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$", var.query_lambda_alias_arn))
+    error_message = "query_lambda_alias_arn must be a qualified Lambda alias ARN, including the alias after the function name."
+  }
+}
+
+# A small burstable instance is appropriate for the low-traffic MVP.
+variable "instance_type" {
+  description = "EC2 instance type for the single development frontend host."
+  type        = string
+  default     = "t3.micro"
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9]+\\.[a-z0-9]+$", var.instance_type))
+    error_message = "instance_type must be a non-empty EC2 instance type such as t3.micro."
+  }
+}
+
+# GP3 keeps low-cost general-purpose root storage configurable.
+variable "root_volume_size_gib" {
+  description = "Size in GiB of the encrypted GP3 root volume for the frontend host."
+  type        = number
+  default     = 20
+
+  validation {
+    condition     = var.root_volume_size_gib >= 8 && var.root_volume_size_gib <= 100
+    error_message = "root_volume_size_gib must be between 8 and 100 GiB for the MVP host."
+  }
+}
+
 variable "common_tags" {
   description = "Optional business tags. Mandatory project tags defined in locals.tf take precedence."
   type        = map(string)

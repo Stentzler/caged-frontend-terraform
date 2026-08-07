@@ -66,7 +66,7 @@ The following decisions are fixed for the MVP:
 12. When dates are omitted, Next.js follows the query Lambda contract and
     requests only the latest available month. Infrastructure does not impose
     date rules.
-13. The WAF rate limit is 10 analytics submissions per source IP in a 60-second
+13. The WAF rate limit is 15 analytics submissions per source IP in a 60-second
     evaluation window.
 14. Nginx provides a second, exact per-client rate limit for analytics POST
     requests.
@@ -372,7 +372,7 @@ The MVP web ACL contains one rate-based rule:
 | --- | --- |
 | Aggregation key | Source IP |
 | Evaluation window | 60 seconds |
-| Limit | 10 requests |
+| Limit | 15 requests |
 | Scope-down | HTTP method `POST` |
 | Action | Block |
 | Custom response | HTTP `429` |
@@ -515,7 +515,7 @@ At minimum, expose typed and validated variables for:
 | `viewer_domain_name` | Required only when custom domain is enabled |
 | `route53_hosted_zone_id` | Required when Terraform manages DNS validation |
 | `cloudfront_price_class` | Defaults to a class that includes South America |
-| `waf_rate_limit` | Default and minimum `10` |
+| `waf_rate_limit` | Default and minimum `15` |
 | `waf_evaluation_window_seconds` | Default `60`; restricted to AWS-supported values |
 | `common_tags` | Additional non-conflicting resource tags |
 
@@ -631,7 +631,7 @@ The infrastructure MVP is complete when:
    origin header are rejected by Nginx.
 6. Static Next.js build assets are cached while dynamic and POST responses are
    not cached.
-7. The eleventh qualifying analytics POST from one IP within the WAF evaluation
+7. The sixteenth qualifying analytics POST from one IP within the WAF evaluation
    window is rate-limited near the configured threshold, acknowledging WAF's
    approximate behavior.
 8. Nginx enforces its exact local request limit using the trusted viewer address.

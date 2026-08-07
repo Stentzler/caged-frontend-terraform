@@ -70,6 +70,27 @@ After initialization, Terraform records the backend locally under the ignored
 `.terraform/` directory. Normal `plan`, `apply`, and `state` commands then use
 the shared S3 state automatically.
 
+## Backend Lambda contract
+
+The query Lambda is owned by `caged-aws-iac`, not by this repository. For now,
+the development root receives its qualified alias ARN from the ignored local
+`environments/dev/terraform.tfvars` file. The value is currently available as
+the backend root output named `query_alias_arn`.
+
+```hcl
+# environments/dev/terraform.tfvars -- ignored by Git
+query_lambda_alias_arn = "arn:aws:lambda:us-east-1:123456789012:function:caged-dev-query:dev"
+```
+
+Use an alias ARN rather than a plain function ARN so the future EC2 role is
+limited to an intentional backend release. This identifier is not a secret,
+but the local file stays uncommitted because it is account-specific.
+
+Later, the backend repository can publish this ARN to a non-secret AWS Systems
+Manager Parameter. This frontend root can then read only that parameter instead
+of receiving a local value, without granting it access to the backend's full
+Terraform state.
+
 ### Safe daily workflow
 
 Always review the shared-state plan before changing infrastructure:
@@ -91,6 +112,22 @@ destruction on the next approved apply. Controls gate whole modules, not their
 individual dependent resources, so the VPC, subnet, routing, and security group
 are switched together. Always run and review `terraform plan` after changing a
 control.
+
+### Frontend host identity
+
+`enable_frontend_host` creates the IAM role, instance profile, one EC2 origin,
+and its stable Elastic IP as one component. The role grants only Systems
+Manager Session Manager access, pull access to this project's ECR repository,
+and direct invocation of the configured query Lambda alias.
+
+The host now uses an encrypted GP3 root volume, IMDSv2, no SSH key, and an
+Elastic IP reserved only for the future CloudFront origin. Nginx accepts the
+origin request only when the network source is CloudFront and CloudFront sends
+the generated verification header. It also requires the trusted
+`CloudFront-Viewer-Address` header and applies an exact 15-per-minute rate
+limit to POST requests, returning `429` when the small burst allowance is
+exceeded. CloudFront configuration to send these headers is the next edge
+delivery step.
 
 ## Frontend image retention
 

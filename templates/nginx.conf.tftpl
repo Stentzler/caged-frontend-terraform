@@ -1,1 +1,61 @@
-# CloudFront-origin validation and loopback Next.js proxy configuration will be implemented here.
+# CloudFront is the only permitted network caller. This second check makes the
+# origin unusable unless CloudFront also presents the generated secret header.
+server_tokens off;
+
+# CloudFront-Viewer-Address has IPv4 as "address:port" and IPv6 as
+# "[address]:port". Anything else stays empty and is rejected below, preventing
+# malformed headers from collapsing unrelated clients into one rate-limit key.
+map $http_cloudfront_viewer_address $trusted_viewer_ip {
+  default "";
+  ~^(?<trusted_ipv4>[0-9]{1,3}(?:\.[0-9]{1,3}){3}):[0-9]+$ $trusted_ipv4;
+  ~^\[(?<trusted_ipv6>[0-9A-Fa-f:]+)\]:[0-9]+$ $trusted_ipv6;
+}
+
+# The MVP has one analytics POST workflow, so every POST is limited. GET pages
+# and static assets receive an empty key and are not counted by this zone.
+map $request_method $analytics_rate_limit_key {
+  default "";
+  POST $trusted_viewer_ip;
+}
+
+# Fifteen requests per minute is the exact origin-level layer; WAF remains the
+# earlier, approximate CloudFront layer with the same intended threshold.
+limit_req_zone $analytics_rate_limit_key zone=analytics_post_limit:10m rate=15r/m;
+
+server {
+  listen 80 default_server;
+  server_name _;
+  client_max_body_size 1m;
+
+  # Deployment verifies Nginx locally without requiring a public origin path.
+  location = /health {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok\n";
+  }
+
+  # Bootstrap replaces this placeholder only on the EC2 host after reading SSM.
+  if ($http_x_caged_origin_verify != "__ORIGIN_SECRET__") {
+    return 403;
+  }
+
+  # The network rule already restricts this header to CloudFront callers. A
+  # malformed or absent trusted viewer address must fail instead of sharing a
+  # fallback rate-limit bucket with other clients.
+  if ($trusted_viewer_ip = "") {
+    return 400;
+  }
+
+  location / {
+    limit_req zone=analytics_post_limit burst=2 nodelay;
+    limit_req_status 429;
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For "";
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+}

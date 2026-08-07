@@ -1,2 +1,48 @@
 #!/usr/bin/env bash
-# Idempotent Ubuntu 24.04 bootstrap will be implemented here.
+# Idempotent Ubuntu bootstrap: application images arrive later via immutable
+# ECR releases deployed through Systems Manager, never a mutable latest image.
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update -y
+apt-get install -y awscli docker.io nginx
+
+systemctl enable --now amazon-ssm-agent docker nginx
+
+# IAM role propagation can take a short time after instance creation, so retry
+# securely obtaining the origin secret with the instance's temporary credentials.
+origin_secret=""
+for attempt in {1..12}; do
+  origin_secret="$(aws ssm get-parameter \
+    --region "${aws_region}" \
+    --name "${origin_secret_parameter_name}" \
+    --with-decryption \
+    --query 'Parameter.Value' \
+    --output text 2>/dev/null || true)"
+
+  if [ -n "$${origin_secret}" ] && [ "$${origin_secret}" != "None" ]; then
+    break
+  fi
+
+  sleep 5
+done
+
+if [ -z "$${origin_secret}" ] || [ "$${origin_secret}" = "None" ]; then
+  echo "Unable to retrieve the Nginx origin-verification secret from SSM." >&2
+  exit 1
+fi
+
+# The quoted heredoc preserves Nginx's dollar-prefixed variables. The only
+# replacement is the alphanumeric generated secret in a root-readable file.
+install -d -m 0755 /etc/nginx/conf.d
+rm -f /etc/nginx/sites-enabled/default
+cat > /etc/nginx/conf.d/caged-frontend.conf <<'NGINX'
+${nginx_configuration}
+NGINX
+sed -i "s|__ORIGIN_SECRET__|$${origin_secret}|g" /etc/nginx/conf.d/caged-frontend.conf
+chown root:root /etc/nginx/conf.d/caged-frontend.conf
+chmod 0600 /etc/nginx/conf.d/caged-frontend.conf
+
+nginx -t
+systemctl restart nginx

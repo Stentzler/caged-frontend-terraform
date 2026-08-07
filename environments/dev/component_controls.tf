@@ -24,3 +24,16 @@ variable "enable_container_registry" {
     error_message = "enable_container_registry must be either 0 or 1."
   }
 }
+
+# This switch controls the EC2 host's IAM identity. It creates no compute yet;
+variable "enable_frontend_host" {
+  description = "Set to 1 to create the frontend host identity component, or 0 to remove it."
+  type        = number
+  default     = 1
+
+  validation {
+    # Keeping the same numeric contract prevents ambiguous true/false inputs.
+    condition     = contains([0, 1], var.enable_frontend_host)
+    error_message = "enable_frontend_host must be either 0 or 1."
+  }
+}

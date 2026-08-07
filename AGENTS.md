@@ -228,7 +228,7 @@ The initial web ACL has one custom rate-based rule:
 - Scope is `CLOUDFRONT`.
 - Aggregation is by source IP.
 - Evaluation window is 60 seconds.
-- Default limit is 10.
+- Default limit is 15.
 - Scope-down matches HTTP POST.
 - Blocked requests receive HTTP `429`.
 - CloudWatch metrics and sampled requests are enabled.
