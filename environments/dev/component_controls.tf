@@ -12,3 +12,15 @@ variable "enable_network" {
     error_message = "enable_network must be either 0 or 1."
   }
 }
+
+variable "enable_container_registry" {
+  description = "Set to 1 to create the frontend ECR repository, or 0 to remove it."
+  type        = number
+  default     = 1
+
+  validation {
+    # The numeric control pattern is shared by every deployable component.
+    condition     = contains([0, 1], var.enable_container_registry)
+    error_message = "enable_container_registry must be either 0 or 1."
+  }
+}

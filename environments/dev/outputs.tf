@@ -12,3 +12,13 @@ output "frontend_origin_security_group_id" {
   description = "Security group for the future EC2 origin, or null when enable_network is 0."
   value       = one(module.network[*].frontend_origin_security_group_id)
 }
+
+output "frontend_ecr_repository_arn" {
+  description = "ARN of the frontend ECR repository, or null when enable_container_registry is 0."
+  value       = one(module.container_registry[*].repository_arn)
+}
+
+output "frontend_ecr_repository_url" {
+  description = "URL used by CI to push frontend images, or null when enable_container_registry is 0."
+  value       = one(module.container_registry[*].repository_url)
+}

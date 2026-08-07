@@ -3,6 +3,7 @@
 
 # Set a component to 0 only with an approved plan: Terraform will destroy it.
 enable_network = 1
+enable_container_registry = 1
 
 aws_region          = "us-east-1"
 vpc_cidr            = "10.42.0.0/16"

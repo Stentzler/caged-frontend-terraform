@@ -91,3 +91,11 @@ destruction on the next approved apply. Controls gate whole modules, not their
 individual dependent resources, so the VPC, subnet, routing, and security group
 are switched together. Always run and review `terraform plan` after changing a
 control.
+
+## Frontend image retention
+
+The private ECR repository stores immutable frontend release images. Its
+lifecycle policy permanently retains the three newest tagged images for
+rollback and expires untagged images after three days to control storage cost.
+Terraform does not build or push images; the frontend deployment workflow does
+that after the repository is available.
