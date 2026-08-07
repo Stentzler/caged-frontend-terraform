@@ -63,3 +63,12 @@ module "edge_delivery" {
   origin_secret_parameter_name  = one(module.frontend_host[*].origin_verification_parameter_name)
   tags                          = local.tags
 }
+
+module "github_deployment" {
+  count          = var.enable_github_deployment
+  source         = "../../modules/github_deployment"
+  name           = "${local.name_prefix}-dev"
+  repository_arn = one(module.container_registry[*].repository_arn)
+  instance_id    = one(module.frontend_host[*].instance_id)
+  tags           = local.tags
+}

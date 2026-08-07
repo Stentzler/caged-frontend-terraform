@@ -69,3 +69,14 @@ variable "enable_edge_delivery" {
     error_message = "enable_edge_delivery can be 1 only when enable_frontend_host is also 1."
   }
 }
+
+variable "enable_github_deployment" {
+  description = "Set to 1 to create the GitHub OIDC deployment role, or 0 to remove it."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([0, 1], var.enable_github_deployment)
+    error_message = "enable_github_deployment must be either 0 or 1."
+  }
+}
