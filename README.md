@@ -218,6 +218,33 @@ rollback and expires untagged images after three days to control storage cost.
 Terraform does not build or push images; the frontend deployment workflow does
 that after the repository is available.
 
+## Frontend runtime configuration
+
+The EC2 host owns one non-secret SSM Parameter Store `String` per environment:
+`/caged/dev/frontend/runtime-env`. Terraform renders its value as an env-file
+containing the AWS Region, qualified query-Lambda alias ARN, and the public
+source, GitHub, and contact links required by Next.js. The actual parameter
+value is never an output.
+
+During an application deployment, the SSM command runs on EC2 and the instance
+role reads this exact parameter before Docker starts the container with it as an
+env-file. GitHub Actions does not receive the runtime values; it only assumes
+the restricted OIDC role to push an immutable image and request the SSM command.
+This keeps account-specific server configuration out of the image, Git history,
+and the browser bundle.
+
+After the approved Terraform apply, the frontend repository can store the
+following **non-secret** GitHub `dev` environment variable for its deployment
+workflow:
+
+```bash
+terraform -chdir=environments/dev output -raw frontend_runtime_environment_parameter_name
+```
+
+The workflow passes that parameter name to its SSM deployment script. The
+script runs on EC2, where the instance role retrieves the value; it must never
+print the env-file or give GitHub permission to read it.
+
 ## Edge protection
 
 `enable_edge_delivery` creates the CloudFront-scoped WAF foundation in

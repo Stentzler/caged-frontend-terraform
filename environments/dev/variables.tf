@@ -79,6 +79,49 @@ variable "query_lambda_alias_arn" {
   }
 }
 
+# These values appear in public frontend pages, but they are runtime settings
+# rather than Docker build inputs. Real development values belong in ignored
+# terraform.tfvars; the committed example uses safe placeholders.
+variable "site_official_source_url" {
+  description = "Public official Novo CAGED source URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_official_source_url)) && !strcontains(var.site_official_source_url, "\n")
+    error_message = "site_official_source_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_cbo_source_url" {
+  description = "Public CBO source URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_cbo_source_url)) && !strcontains(var.site_cbo_source_url, "\n")
+    error_message = "site_cbo_source_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_github_url" {
+  description = "Public project or maintainer GitHub URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_github_url)) && !strcontains(var.site_github_url, "\n")
+    error_message = "site_github_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_contact_email" {
+  description = "Public contact email address rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.site_contact_email)) && !strcontains(var.site_contact_email, "\n")
+    error_message = "site_contact_email must be a single-line email address."
+  }
+}
+
 # A small burstable instance is appropriate for the low-traffic MVP.
 variable "instance_type" {
   description = "EC2 instance type for the single development frontend host."

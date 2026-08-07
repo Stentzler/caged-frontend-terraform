@@ -33,8 +33,25 @@ resource "aws_ssm_parameter" "origin_verification" {
   tags  = var.tags
 }
 
+# This single non-secret String parameter acts as the production-style .env
+# file for the Next.js container. Keeping it outside the image lets a reviewed
+# Terraform change update runtime configuration without committing it to Git.
+resource "aws_ssm_parameter" "runtime_environment" {
+  name = var.runtime_environment_parameter_name
+  type = "String"
+  value = templatefile("${path.module}/../../templates/runtime-env.tftpl", {
+    aws_region               = var.aws_region
+    query_lambda_alias_arn   = var.query_lambda_alias_arn
+    site_official_source_url = var.site_official_source_url
+    site_cbo_source_url      = var.site_cbo_source_url
+    site_github_url          = var.site_github_url
+    site_contact_email       = var.site_contact_email
+  })
+  tags = var.tags
+}
+
 # This policy grants the small set of actions required by SSM Session Manager,
-# ECR image pulls, and direct invocation of the approved query Lambda alias.
+# ECR image pulls, runtime configuration reads, and direct Lambda invocation.
 data "aws_iam_policy_document" "instance" {
   statement {
     sid    = "SystemsManagerSession"
@@ -76,10 +93,15 @@ data "aws_iam_policy_document" "instance" {
   }
 
   statement {
-    sid       = "ReadOriginVerificationSecret"
-    effect    = "Allow"
-    actions   = ["ssm:GetParameter"]
-    resources = [aws_ssm_parameter.origin_verification.arn]
+    sid     = "ReadHostConfiguration"
+    effect  = "Allow"
+    actions = ["ssm:GetParameter"]
+    # The host may read only its Nginx origin secret and its own runtime .env
+    # parameter. It cannot enumerate or read unrelated account parameters.
+    resources = [
+      aws_ssm_parameter.origin_verification.arn,
+      aws_ssm_parameter.runtime_environment.arn,
+    ]
   }
 }
 

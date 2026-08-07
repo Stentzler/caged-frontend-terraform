@@ -35,15 +35,20 @@ module "frontend_host" {
   count  = var.enable_frontend_host
   source = "../../modules/frontend_host"
 
-  host_name               = "${local.name_prefix}-host"
-  frontend_repository_arn = one(module.container_registry[*].repository_arn)
-  query_lambda_alias_arn  = var.query_lambda_alias_arn
-  subnet_id               = one(module.network[*].public_subnet_id)
-  security_group_id       = one(module.network[*].frontend_origin_security_group_id)
-  aws_region              = var.aws_region
-  instance_type           = var.instance_type
-  root_volume_size_gib    = var.root_volume_size_gib
-  tags                    = local.tags
+  host_name                          = "${local.name_prefix}-host"
+  frontend_repository_arn            = one(module.container_registry[*].repository_arn)
+  query_lambda_alias_arn             = var.query_lambda_alias_arn
+  subnet_id                          = one(module.network[*].public_subnet_id)
+  security_group_id                  = one(module.network[*].frontend_origin_security_group_id)
+  aws_region                         = var.aws_region
+  runtime_environment_parameter_name = local.runtime_environment_parameter_name
+  site_official_source_url           = var.site_official_source_url
+  site_cbo_source_url                = var.site_cbo_source_url
+  site_github_url                    = var.site_github_url
+  site_contact_email                 = var.site_contact_email
+  instance_type                      = var.instance_type
+  root_volume_size_gib               = var.root_volume_size_gib
+  tags                               = local.tags
 }
 
 # WAF is a CloudFront-scoped global resource and therefore receives the

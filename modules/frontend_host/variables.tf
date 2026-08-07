@@ -33,6 +33,62 @@ variable "aws_region" {
   type        = string
 }
 
+# This path is an operation-friendly reference to the one runtime .env file.
+# It contains no secret values, but the instance role still reads it by exact ARN.
+variable "runtime_environment_parameter_name" {
+  description = "SSM parameter name containing the frontend container runtime environment."
+  type        = string
+
+  validation {
+    # The hyphen is last in this character class, where it means a literal
+    # hyphen rather than a range. Paths such as runtime-env are valid SSM names.
+    condition     = can(regex("^/[A-Za-z0-9_./-]+$", var.runtime_environment_parameter_name))
+    error_message = "runtime_environment_parameter_name must be an absolute SSM parameter path."
+  }
+}
+
+# These public values are runtime configuration, not image build arguments.
+# Reject newlines so every value remains exactly one KEY=value env-file line.
+variable "site_official_source_url" {
+  description = "Public official Novo CAGED source URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_official_source_url)) && !strcontains(var.site_official_source_url, "\n")
+    error_message = "site_official_source_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_cbo_source_url" {
+  description = "Public CBO source URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_cbo_source_url)) && !strcontains(var.site_cbo_source_url, "\n")
+    error_message = "site_cbo_source_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_github_url" {
+  description = "Public project or maintainer GitHub URL rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_github_url)) && !strcontains(var.site_github_url, "\n")
+    error_message = "site_github_url must be a single-line HTTPS URL."
+  }
+}
+
+variable "site_contact_email" {
+  description = "Public contact email address rendered by the frontend."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.site_contact_email)) && !strcontains(var.site_contact_email, "\n")
+    error_message = "site_contact_email must be a single-line email address."
+  }
+}
+
 variable "instance_type" {
   description = "EC2 instance type for the frontend origin."
   type        = string

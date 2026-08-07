@@ -2,6 +2,10 @@ locals {
   # A consistent prefix keeps names understandable in the AWS console.
   name_prefix = "${var.project_name}-${var.environment}"
 
+  # This stable hierarchy makes the single runtime env-file easy to locate
+  # without exposing its contents in outputs or GitHub workflow logs.
+  runtime_environment_parameter_name = "/caged/${var.environment}/frontend/runtime-env"
+
   # Mandatory tags are merged last, so callers cannot replace their values.
   mandatory_tags = {
     Environment = var.environment

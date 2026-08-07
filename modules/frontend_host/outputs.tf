@@ -28,6 +28,12 @@ output "origin_verification_parameter_name" {
   value       = aws_ssm_parameter.origin_verification.name
 }
 
+# Deployment automation needs this name, not the configuration value itself.
+output "runtime_environment_parameter_name" {
+  description = "SSM parameter name containing the non-secret Next.js runtime environment."
+  value       = aws_ssm_parameter.runtime_environment.name
+}
+
 # CloudFront requires a resolvable hostname for its custom origin.
 output "origin_domain_name" {
   description = "Public DNS hostname for the Elastic IP used as the CloudFront origin."
