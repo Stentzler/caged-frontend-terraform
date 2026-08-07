@@ -28,3 +28,57 @@ The standalone `bootstrap/` root creates the protected S3 state bucket. After
 bootstrapping, initialize the development root with the generated bucket name
 and the uncommitted `environments/dev/backend.hcl` configuration. Native S3
 lockfiles are enabled; DynamoDB locking is not used.
+
+## Team setup: development environment
+
+Every developer and CI runner must initialize the development root against the
+shared S3 backend before using Terraform. This lets Terraform see and lock the
+same state for every team member.
+
+### Prerequisites
+
+- Terraform 1.10 or newer.
+- AWS credentials for the intended account and Region.
+- IAM permission to read and write the development state object and lockfile,
+  plus the least-privilege infrastructure permissions assigned to the role.
+- The shared backend bucket name from the team's approved onboarding channel.
+
+### First-time setup
+
+1. Clone the repository.
+2. Create a local backend configuration from the committed example:
+
+   ```bash
+   cp environments/dev/backend.hcl.example environments/dev/backend.hcl
+   ```
+
+3. Replace the placeholder `bucket` value with the shared state-bucket name.
+   Do not commit `backend.hcl`; it is ignored intentionally.
+4. Initialize the development root:
+
+   ```bash
+   terraform -chdir=environments/dev init -backend-config=backend.hcl
+   ```
+
+5. Confirm Terraform can read the shared state without changing infrastructure:
+
+   ```bash
+   terraform -chdir=environments/dev plan
+   ```
+
+After initialization, Terraform records the backend locally under the ignored
+`.terraform/` directory. Normal `plan`, `apply`, and `state` commands then use
+the shared S3 state automatically.
+
+### Safe daily workflow
+
+Always review the shared-state plan before changing infrastructure:
+
+```bash
+terraform -chdir=environments/dev plan
+terraform -chdir=environments/dev apply
+```
+
+Only run `apply` after the plan is reviewed and the change is authorized. S3
+native lockfiles prevent simultaneous applies, but they do not replace code
+review or least-privilege IAM permissions.
