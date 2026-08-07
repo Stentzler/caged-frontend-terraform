@@ -1,0 +1,1 @@
+// Container registry module inputs.

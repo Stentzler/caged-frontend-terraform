@@ -52,12 +52,13 @@ change:
 - Next.js invokes Lambda directly with the EC2 instance role.
 - No API Gateway resource or permission is introduced.
 - The query Lambda contract remains unchanged.
-- The infrastructure starts with one MVP environment and no Terraform
-  workspaces.
+- Infrastructure starts with a `dev` environment root and a `shared` root for
+  explicitly account-level resources. Add an independent `prod` root only when
+  production implementation begins; Terraform workspaces are not used for
+  environment separation.
 
 Do not introduce ALB, NAT, Redis, Kubernetes, ECS hosting, Lambda Function URLs,
-API Gateway, multiple environments, or private endpoints as incidental
-improvements.
+API Gateway, or private endpoints as incidental improvements.
 
 ## 4. External contracts
 
@@ -78,27 +79,19 @@ codes. Infrastructure naming and documentation should use `cbo-family` or
 
 ## 5. Terraform organization
 
-Keep the initial implementation as one understandable root module organized by
-concern. Prefer focused files such as `network.tf`, `compute.tf`, `iam.tf`,
-`cloudfront.tf`, and `waf.tf` over one large file.
+Keep `environments/dev` as a small composition root and add
+`environments/prod` only with production implementation. Place reusable,
+cohesive infrastructure domains in `modules/`, such as network, frontend host,
+edge delivery, and observability. Keep account-level resources in
+`environments/shared`.
 
-Extract a child module only when at least one of these is true:
+Each module must own a meaningful resource domain with a clear interface; do
+not create thin modules that merely rename a few resources.
 
-- It has an independent lifecycle.
-- It has a clear, stable interface.
-- It has a second real consumer.
-- Repetition is already present and meaningful.
-
-Do not create thin modules that merely rename a few resources.
-
-Keep:
-
-- Terraform and provider constraints in `versions.tf`.
-- Provider configurations and aliases in `providers.tf`.
-- Inputs in `variables.tf`.
-- Derived names and mandatory tags in `locals.tf`.
-- Non-secret outputs in `outputs.tf`.
-- Bootstrap scripts and generated configuration under `templates/`.
+Keep Terraform/provider constraints, providers, environment inputs, locals, and
+outputs in each environment root. Keep module-specific inputs and outputs with
+their module. Store bootstrap scripts and generated configuration under
+`templates/`.
 
 ## 6. Terraform conventions
 
@@ -346,4 +339,3 @@ A change is complete only when:
 - Documentation and examples match the implementation.
 - The handoff names any unverified cloud behavior, required manual value, cost
   impact, or external dependency.
-

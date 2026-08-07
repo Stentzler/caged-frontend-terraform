@@ -7,7 +7,7 @@
 | Repository | `caged-frontend-terraform` |
 | Version | 1.0 |
 | Status | Approved for MVP implementation |
-| Environment | One MVP environment |
+| Active environments | Development, with an account-level shared stack; production is added when its implementation begins |
 | Infrastructure as code | Terraform |
 | Application repository | `caged-frontend-next` |
 
@@ -73,8 +73,10 @@ The following decisions are fixed for the MVP:
 15. CloudFront pay-as-you-go pricing is used for the initial implementation.
     The flat-rate Free plan is not assumed because it limits custom caching and
     private-origin capabilities.
-16. Only one environment is provisioned for the MVP. Terraform workspaces are
-    not used for environment separation.
+16. Development uses an independent Terraform root and state. An explicit
+    shared root owns account-level resources such as a GitHub OIDC provider.
+    Production will receive its own root and state when implementation begins;
+    Terraform workspaces are not used for environment separation.
 
 ## 4. High-level request flow
 
@@ -128,28 +130,23 @@ The following decisions are fixed for the MVP:
 | `AGENTS.md` | Repository-specific implementation rules |
 | `SPEC.md` | Approved infrastructure requirements |
 | `README.md` | Human setup, deployment, operations, and cost documentation |
-| `versions.tf` | Terraform and provider constraints |
-| `providers.tf` | Primary and `us-east-1` provider configurations |
-| `variables.tf` | Typed input variables and validation rules |
-| `locals.tf` | Naming, common tags, and derived values |
-| `network.tf` | VPC, subnet, routes, internet gateway, and prefix-list lookup |
-| `compute.tf` | EC2, EBS, Elastic IP, and instance profile association |
-| `ecr.tf` | Application container repository and lifecycle policy |
-| `iam.tf` | EC2 and GitHub OIDC roles and least-privilege policies |
-| `ssm.tf` | Secure parameters used by deployment and Nginx |
-| `cloudfront.tf` | Distribution, origin, cache, and origin-request policies |
-| `waf.tf` | Global WAF web ACL, rate rule, metrics, and custom 429 response |
-| `dns.tf` | Optional Route 53 record and ACM viewer certificate |
-| `observability.tf` | CloudWatch alarms and optional notification wiring |
-| `outputs.tf` | Non-secret deployment and operations outputs |
+| `environments/shared/` | Account-level resources, including optional GitHub OIDC provider ownership |
+| `environments/dev/` | Development composition root, state configuration, inputs, and outputs |
+| `environments/prod/` | Future production composition root, added when production implementation begins |
+| `modules/network/` | VPC, subnet, routes, internet gateway, and CloudFront-only origin security group |
+| `modules/frontend_host/` | EC2, EBS, Elastic IP, host identity, SSM parameters, and Nginx bootstrap wiring |
+| `modules/container_registry/` | Application container repository and lifecycle policy |
+| `modules/edge_delivery/` | CloudFront, global WAF, origin configuration, cache policies, and optional viewer domain |
+| `modules/github_deployment/` | Environment-scoped GitHub deployment role and least-privilege permissions |
+| `modules/observability/` | CloudWatch alarms and optional notification wiring |
 | `templates/user-data.sh.tftpl` | Idempotent Ubuntu instance bootstrap |
 | `templates/nginx.conf.tftpl` | Nginx proxy, origin validation, and rate limiting |
 | `bootstrap/` | Independent S3 backend bootstrap configuration |
-| `terraform.tfvars.example` | Safe example values with no credentials or secrets |
+| `environments/*/*.tfvars.example` | Safe environment example values with no credentials or secrets |
 
-The initial repository should remain a single root module. Extract a reusable
-module only after a second real consumer or a clearly independent lifecycle
-justifies it.
+Environment roots should contain composition and environment-specific values
+only. Reusable modules own coherent infrastructure domains with explicit input
+and output interfaces; thin pass-through modules are not allowed.
 
 ## 7. Terraform and state requirements
 
@@ -181,7 +178,8 @@ The main root uses an S3 backend with:
 - Public access blocked.
 - Least-privilege access.
 - Native S3 state locking with `use_lockfile`.
-- A stable key such as `caged-frontend/prod/terraform.tfstate`.
+- A stable development key such as `caged-frontend/dev/terraform.tfstate`.
+  Production receives its own key when that environment is introduced.
 
 The backend bucket is bootstrapped separately because Terraform cannot create
 the backend that stores its own initial state. Backend names and Region are
@@ -659,7 +657,6 @@ The following items are explicitly outside the MVP:
 - CloudFront flat-rate plan migration.
 - Full WAF managed rule groups and bot control.
 - Centralized full access logs.
-- Multiple Terraform environments.
 - Blue/green or canary infrastructure deployment.
 - Disaster recovery across Regions.
 - City-filter-specific infrastructure.
@@ -690,4 +687,3 @@ deliberately disabled resource, never a broad placeholder permission.
 - CloudFront origin-facing prefix list: <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/LocationsOfEdgeServers.html>
 - CloudFront pricing: <https://aws.amazon.com/cloudfront/pricing/>
 - AWS WAF pricing: <https://aws.amazon.com/waf/pricing/>
-
