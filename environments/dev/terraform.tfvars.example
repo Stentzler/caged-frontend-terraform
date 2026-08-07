@@ -1,1 +1,15 @@
 # Copy to terraform.tfvars and replace with non-secret development values.
+# This file is safe to commit only as an example; your real terraform.tfvars is ignored.
+
+# Set a component to 0 only with an approved plan: Terraform will destroy it.
+enable_network = 1
+
+aws_region          = "us-east-1"
+vpc_cidr            = "10.42.0.0/16"
+public_subnet_cidr  = "10.42.0.0/24"
+# availability_zone = "us-east-1a"
+
+common_tags = {
+  Owner      = "platform"
+  CostCenter = "engineering"
+}

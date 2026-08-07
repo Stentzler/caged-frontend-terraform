@@ -95,6 +95,9 @@ their module. Store bootstrap scripts and generated configuration under
 
 ## 6. Terraform conventions
 
+- Write beginner-friendly comments for every implemented Terraform block. The
+  comments must explain the purpose and important trade-off, not merely restate
+  the HCL syntax.
 - Use descriptive snake_case Terraform identifiers.
 - Use stable `for_each` keys rather than index-based `count` when resource
   identity matters.
@@ -115,6 +118,18 @@ their module. Store bootstrap scripts and generated configuration under
 - Do not use `ignore_changes` to conceal configuration drift.
 - Do not use `-target` as a normal deployment mechanism.
 - Preserve `.terraform.lock.hcl` and review provider changes deliberately.
+
+### Component control plane
+
+Each deployable infrastructure component must have a numeric `0` or `1` control
+in the environment root's `component_controls.tf` file. Validate that each control
+accepts only `0` or `1`, then use it to conditionally create the component's
+module with `count`.
+
+Gate cohesive components, not individual dependent resources. For example, a
+single network control owns the VPC, subnet, routing, and security group
+together. Setting a control from `1` to `0` proposes destruction of that
+component, so it always requires a reviewed plan and explicit authorization.
 
 ## 7. Global-resource providers
 

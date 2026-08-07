@@ -82,3 +82,12 @@ terraform -chdir=environments/dev apply
 Only run `apply` after the plan is reviewed and the change is authorized. S3
 native lockfiles prevent simultaneous applies, but they do not replace code
 review or least-privilege IAM permissions.
+
+## Component controls
+
+`environments/dev/component_controls.tf` contains numeric `0`/`1` controls for each
+deployable component. A value of `1` creates the component; `0` proposes its
+destruction on the next approved apply. Controls gate whole modules, not their
+individual dependent resources, so the VPC, subnet, routing, and security group
+are switched together. Always run and review `terraform plan` after changing a
+control.
