@@ -238,6 +238,11 @@ owner and repository IDs. The deployment role trust policy must match the
 subject emitted by the `dev` environment job exactly; do not replace it with
 the default repository-name-only subject during IAM maintenance.
 
+The deployment role can send a command only to the configured EC2 instance and
+`AWS-RunShellScript` document. AWS does not offer a command-invocation ARN for
+`ssm:GetCommandInvocation`, so that read permission uses `Resource: "*"` but is
+limited to the deployment Region.
+
 After the approved Terraform apply, the frontend repository can store the
 following **non-secret** GitHub `dev` environment variable for its deployment
 workflow:

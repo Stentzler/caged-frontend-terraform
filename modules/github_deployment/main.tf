@@ -46,8 +46,21 @@ data "aws_iam_policy_document" "deployment" {
   }
   statement {
     effect    = "Allow"
-    actions   = ["ssm:SendCommand", "ssm:GetCommandInvocation", "ssm:ListCommandInvocations"]
+    actions   = ["ssm:SendCommand"]
     resources = ["arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}::document/AWS-RunShellScript", "arn:${data.aws_partition.current.partition}:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:instance/${var.instance_id}"]
+  }
+  # SSM does not expose command-invocation ARNs for GetCommandInvocation. Limit
+  # its required wildcard permission to this deployment Region; SendCommand
+  # remains separately restricted to the approved document and EC2 instance.
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestedRegion"
+      values   = [data.aws_region.current.region]
+    }
   }
 }
 
