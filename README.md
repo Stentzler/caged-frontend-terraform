@@ -22,36 +22,6 @@ keeping this frontend's modules domain-sized rather than creating thin wrappers.
 See `SPEC.md` for the approved architecture and `AGENTS.md` for implementation
 and validation rules.
 
-## Frontend request flow
-
-The public edge components in this diagram are implemented in the next module;
-the EC2 origin and its Nginx safeguards are already defined.
-
-```mermaid
-flowchart LR
-  visitor[Visitor's browser]
-  cloudfront[CloudFront\nHTTPS, cache rules]
-  waf[AWS WAF\n15 POSTs/IP/minute]
-  security_group[EC2 security group\nport 80: CloudFront prefix list only]
-  nginx[Nginx on EC2\norigin verification + rate limit]
-  nextjs[Next.js container\n127.0.0.1:3000]
-  lambda[Query Lambda\nexternal backend infrastructure]
-  dynamodb[(DynamoDB\nexternal backend infrastructure)]
-
-  visitor -->|HTTPS request| cloudfront
-  cloudfront --> waf
-  waf -->|allowed request + trusted headers| security_group
-  security_group --> nginx
-  nginx -->|loopback only| nextjs
-  nextjs -->|AWS SDK with EC2 role| lambda
-  lambda --> dynamodb
-  dynamodb --> lambda
-  lambda --> nextjs
-  nextjs --> nginx
-  nginx --> cloudfront
-  cloudfront -->|HTTPS response| visitor
-```
-
 ### Why the origin-verification header exists
 
 The EC2 security group is the first protection: port 80 accepts connections
@@ -61,7 +31,7 @@ SecureString, and Nginx reads it locally during EC2 bootstrap. The value is not
 an output, not committed to Git, and not placed into the Terraform-rendered
 user-data script.
 
-When we create CloudFront, its origin configuration will add that same value as
+CloudFront's origin configuration adds that same value as
 the private `X-Caged-Origin-Verify` header on requests sent to EC2. Nginx
 returns `403` if the header is missing or wrong, before proxying to Next.js.
 So even another CloudFront distribution—or someone who somehow reaches the
@@ -151,6 +121,64 @@ Only run `apply` after the plan is reviewed and the change is authorized. S3
 native lockfiles prevent simultaneous applies, but they do not replace code
 review or least-privilege IAM permissions.
 
+## First infrastructure deployment
+
+Run these commands from the repository root after completing the team setup
+above. Saving the plan makes the final apply use exactly the reviewed changes;
+the generated `dev.tfplan` file is ignored by Git.
+
+```bash
+git status
+terraform fmt -check -recursive
+terraform -chdir=environments/dev init -backend-config=backend.hcl
+terraform -chdir=environments/dev validate
+terraform -chdir=environments/dev plan -out=dev.tfplan
+terraform -chdir=environments/dev show dev.tfplan
+```
+
+Apply only after reviewing the displayed plan:
+
+```bash
+terraform -chdir=environments/dev apply dev.tfplan
+```
+
+Inspect the created non-secret operational values afterward:
+
+```bash
+terraform -chdir=environments/dev output
+```
+
+This creates billable resources including the EC2 instance, public IPv4/Elastic
+IP, WAF, CloudFront usage, and ECR storage. The infrastructure deployment does
+not deploy the Next.js image: until the frontend image is pushed to ECR and
+started on EC2, CloudFront dynamic requests can return an origin error.
+
+## Future infrastructure deployments
+
+After the first successful initialization, Terraform remembers the shared S3
+backend in the ignored `.terraform/` directory. You normally do **not** rerun
+`init`; rerun it only when Terraform reports that the backend, providers, or
+module sources changed.
+
+For every reviewed infrastructure change, use this workflow:
+
+```bash
+git pull --ff-only
+terraform fmt -check -recursive
+terraform -chdir=environments/dev validate
+terraform -chdir=environments/dev plan -out=dev.tfplan
+terraform -chdir=environments/dev show dev.tfplan
+terraform -chdir=environments/dev apply dev.tfplan
+```
+
+The commands are almost the same as the first deployment. The difference is
+the plan: later changes can update resources in place, replace resources, or
+destroy resources. Pay special attention to any replacement of EC2, Elastic IP,
+CloudFront, WAF, IAM/OIDC resources, or the state backend. Changing a component
+control from `1` to `0` intentionally plans deletion of that entire component.
+
+Never use `-target` as a normal shortcut, and never apply an unreviewed plan.
+
 ## Component controls
 
 `environments/dev/component_controls.tf` contains numeric `0`/`1` controls for each
@@ -197,3 +225,45 @@ that after the repository is available.
 requests over 60 seconds, and returns `429` after 15 requests. CloudWatch
 metrics and sampled requests are enabled; CloudFront itself is added in the
 next edge-delivery increment and will attach this web ACL.
+
+## Flowchart
+
+All AWS infrastructure shown below is now deployed in the development account.
+The Next.js container and its GitHub Actions workflow are the next application
+repository work; until an image is deployed, dynamic requests can return an
+origin error.
+
+```mermaid
+flowchart LR
+  visitor[Visitor's browser]
+  cloudfront[CloudFront\nHTTPS, cache rules]
+  waf[AWS WAF\n15 POSTs/IP/minute]
+  security_group[EC2 security group\nport 80: CloudFront prefix list only]
+  nginx[Nginx on EC2\norigin verification + rate limit]
+  nextjs[Next.js container\n127.0.0.1:3000]
+  lambda[Query Lambda\nexternal backend infrastructure]
+  dynamodb[(DynamoDB\nexternal backend infrastructure)]
+  github[GitHub Actions\ncaged-frontend-next\nenvironment: dev]
+  oidc[GitHub OIDC role\nECR push + SSM commands]
+  ecr[(Private ECR\nimmutable images)]
+  ssm[Systems Manager\nEC2 deployment target]
+
+  visitor -->|HTTPS request| cloudfront
+  cloudfront --> waf
+  waf -->|allowed request + trusted headers| security_group
+  security_group --> nginx
+  nginx -->|loopback only| nextjs
+  nextjs -->|AWS SDK with EC2 role| lambda
+  lambda --> dynamodb
+  dynamodb --> lambda
+  lambda --> nextjs
+  nextjs --> nginx
+  nginx --> cloudfront
+  cloudfront -->|HTTPS response| visitor
+
+  github -->|OIDC temporary credentials| oidc
+  oidc -->|push immutable image| ecr
+  oidc -->|send deployment command| ssm
+  ssm -->|pull selected image| ecr
+  ssm -->|start container on 127.0.0.1:3000| nextjs
+```

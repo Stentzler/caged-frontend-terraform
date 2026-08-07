@@ -70,10 +70,17 @@ resource "aws_wafv2_web_acl" "frontend" {
   tags = var.tags
 }
 
+# This lightweight dependency connects the secret read to the host module input
+# without deferring unrelated data sources, such as CloudFront's cache policy.
+resource "terraform_data" "origin_secret_ready" {
+  input = var.origin_secret_parameter_name
+}
+
 # Read the same secret used by Nginx without exposing it through an output.
 data "aws_ssm_parameter" "origin_verification" {
   name            = var.origin_secret_parameter_name
   with_decryption = true
+  depends_on      = [terraform_data.origin_secret_ready]
 }
 
 # This policy disables caching for SSR, navigation, and Server Actions while

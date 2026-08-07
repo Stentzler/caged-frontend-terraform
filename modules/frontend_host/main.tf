@@ -115,7 +115,6 @@ resource "aws_instance" "frontend_host" {
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [var.security_group_id]
   iam_instance_profile        = aws_iam_instance_profile.frontend_host.name
-  associate_public_ip_address = false
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/../../templates/user-data.sh.tftpl", {
     aws_region                   = var.aws_region
