@@ -30,16 +30,6 @@ module "container_registry" {
   tags            = local.tags
 }
 
-# The host identity needs both an existing network destination and the specific
-# ECR repository it is allowed to pull from. Fail before planning if either
-# dependency is deliberately disabled.
-check "frontend_host_dependencies" {
-  assert {
-    condition     = var.enable_frontend_host == 0 || (var.enable_network == 1 && var.enable_container_registry == 1)
-    error_message = "enable_frontend_host requires both enable_network and enable_container_registry to be 1."
-  }
-}
-
 # This component creates the EC2 origin, EIP, IAM identity, and origin secret.
 module "frontend_host" {
   count  = var.enable_frontend_host
@@ -54,4 +44,22 @@ module "frontend_host" {
   instance_type           = var.instance_type
   root_volume_size_gib    = var.root_volume_size_gib
   tags                    = local.tags
+}
+
+# WAF is a CloudFront-scoped global resource and therefore receives the
+# explicitly aliased us-east-1 provider rather than the regional default.
+module "edge_delivery" {
+  count  = var.enable_edge_delivery
+  source = "../../modules/edge_delivery"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  name                          = "${local.name_prefix}-edge"
+  waf_rate_limit                = var.waf_rate_limit
+  waf_evaluation_window_seconds = var.waf_evaluation_window_seconds
+  origin_domain_name            = one(module.frontend_host[*].origin_domain_name)
+  origin_secret_parameter_name  = one(module.frontend_host[*].origin_verification_parameter_name)
+  tags                          = local.tags
 }

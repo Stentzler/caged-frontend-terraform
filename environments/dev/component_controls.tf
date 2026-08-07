@@ -25,9 +25,10 @@ variable "enable_container_registry" {
   }
 }
 
-# This switch controls the EC2 host's IAM identity. It creates no compute yet;
+# This switch controls the complete EC2 origin component: IAM identity, secret,
+# instance, and Elastic IP. It cannot exist without its network and ECR inputs.
 variable "enable_frontend_host" {
-  description = "Set to 1 to create the frontend host identity component, or 0 to remove it."
+  description = "Set to 1 to create the frontend EC2 host component, or 0 to remove it."
   type        = number
   default     = 1
 
@@ -35,5 +36,36 @@ variable "enable_frontend_host" {
     # Keeping the same numeric contract prevents ambiguous true/false inputs.
     condition     = contains([0, 1], var.enable_frontend_host)
     error_message = "enable_frontend_host must be either 0 or 1."
+  }
+
+  validation {
+    # `condition` is Terraform's validation rule: true accepts this input;
+    # false stops the run and displays the error_message below. `||` means OR,
+    # so a disabled host is always valid. When the host is enabled, `&&` means
+    # both its network and ECR dependencies must be enabled too.
+    condition = var.enable_frontend_host == 0 || (
+      var.enable_network == 1 && var.enable_container_registry == 1
+    )
+    error_message = "enable_frontend_host can be 1 only when enable_network and enable_container_registry are both 1."
+  }
+}
+
+# Edge delivery is the public entry point, so it is valid only after the origin
+# host exists. The WAF and CloudFront distribution will be added together here.
+variable "enable_edge_delivery" {
+  description = "Set to 1 to create the CloudFront and WAF edge component, or 0 to remove it."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([0, 1], var.enable_edge_delivery)
+    error_message = "enable_edge_delivery must be either 0 or 1."
+  }
+
+  validation {
+    # A public distribution without the protected EC2 origin is an invalid
+    # component combination and must never produce an applyable plan.
+    condition     = var.enable_edge_delivery == 0 || var.enable_frontend_host == 1
+    error_message = "enable_edge_delivery can be 1 only when enable_frontend_host is also 1."
   }
 }

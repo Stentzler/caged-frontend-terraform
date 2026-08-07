@@ -103,6 +103,31 @@ variable "root_volume_size_gib" {
   }
 }
 
+# WAF uses this value for each source IP over the configured evaluation window.
+variable "waf_rate_limit" {
+  description = "Maximum POST requests per source IP in each WAF evaluation window."
+  type        = number
+  default     = 15
+
+  validation {
+    condition     = var.waf_rate_limit >= 15
+    error_message = "waf_rate_limit must be at least 15 requests."
+  }
+}
+
+# AWS WAF allows a bounded set of windows; 60 seconds keeps this aligned with
+# the documented MVP policy and the Nginx second-layer intent.
+variable "waf_evaluation_window_seconds" {
+  description = "WAF rate-rule evaluation window in seconds."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = contains([60, 120, 300, 600], var.waf_evaluation_window_seconds)
+    error_message = "waf_evaluation_window_seconds must be one of 60, 120, 300, or 600."
+  }
+}
+
 variable "common_tags" {
   description = "Optional business tags. Mandatory project tags defined in locals.tf take precedence."
   type        = map(string)

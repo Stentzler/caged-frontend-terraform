@@ -40,3 +40,14 @@ output "frontend_host_elastic_ip" {
   description = "Elastic IP of the frontend origin, or null when enable_frontend_host is 0. Do not share it as a viewer URL."
   value       = one(module.frontend_host[*].elastic_ip)
 }
+
+# This ARN will be associated directly with CloudFront in the next edge step.
+output "frontend_waf_web_acl_arn" {
+  description = "ARN of the CloudFront WAF web ACL, or null when enable_edge_delivery is 0."
+  value       = one(module.edge_delivery[*].web_acl_arn)
+}
+
+output "frontend_cloudfront_domain_name" {
+  description = "CloudFront viewer hostname, or null when enable_edge_delivery is 0."
+  value       = one(module.edge_delivery[*].distribution_domain_name)
+}

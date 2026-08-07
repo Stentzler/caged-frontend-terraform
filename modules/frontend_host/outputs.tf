@@ -21,3 +21,15 @@ output "elastic_ip" {
   description = "Elastic IP address assigned to the frontend origin."
   value       = aws_eip.frontend_host.public_ip
 }
+
+# The name is safe to share; the SecureString value is never an output.
+output "origin_verification_parameter_name" {
+  description = "SSM parameter name containing the CloudFront origin-verification secret."
+  value       = aws_ssm_parameter.origin_verification.name
+}
+
+# CloudFront requires a resolvable hostname for its custom origin.
+output "origin_domain_name" {
+  description = "Public DNS hostname for the Elastic IP used as the CloudFront origin."
+  value       = aws_eip.frontend_host.public_dns
+}

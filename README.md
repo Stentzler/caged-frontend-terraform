@@ -22,6 +22,53 @@ keeping this frontend's modules domain-sized rather than creating thin wrappers.
 See `SPEC.md` for the approved architecture and `AGENTS.md` for implementation
 and validation rules.
 
+## Frontend request flow
+
+The public edge components in this diagram are implemented in the next module;
+the EC2 origin and its Nginx safeguards are already defined.
+
+```mermaid
+flowchart LR
+  visitor[Visitor's browser]
+  cloudfront[CloudFront\nHTTPS, cache rules]
+  waf[AWS WAF\n15 POSTs/IP/minute]
+  security_group[EC2 security group\nport 80: CloudFront prefix list only]
+  nginx[Nginx on EC2\norigin verification + rate limit]
+  nextjs[Next.js container\n127.0.0.1:3000]
+  lambda[Query Lambda\nexternal backend infrastructure]
+  dynamodb[(DynamoDB\nexternal backend infrastructure)]
+
+  visitor -->|HTTPS request| cloudfront
+  cloudfront --> waf
+  waf -->|allowed request + trusted headers| security_group
+  security_group --> nginx
+  nginx -->|loopback only| nextjs
+  nextjs -->|AWS SDK with EC2 role| lambda
+  lambda --> dynamodb
+  dynamodb --> lambda
+  lambda --> nextjs
+  nextjs --> nginx
+  nginx --> cloudfront
+  cloudfront -->|HTTPS response| visitor
+```
+
+### Why the origin-verification header exists
+
+The EC2 security group is the first protection: port 80 accepts connections
+only from AWS's managed CloudFront origin-facing prefix list. Nginx adds a
+second protection. Terraform generates a random value, stores it as an SSM
+SecureString, and Nginx reads it locally during EC2 bootstrap. The value is not
+an output, not committed to Git, and not placed into the Terraform-rendered
+user-data script.
+
+When we create CloudFront, its origin configuration will add that same value as
+the private `X-Caged-Origin-Verify` header on requests sent to EC2. Nginx
+returns `403` if the header is missing or wrong, before proxying to Next.js.
+So even another CloudFront distribution—or someone who somehow reaches the
+origin network address—cannot use the origin without knowing the generated
+secret. The header protects the **CloudFront-to-origin** hop; visitors never
+see it and do not send it themselves.
+
 ## Remote state
 
 The standalone `bootstrap/` root creates the protected S3 state bucket. After
@@ -113,6 +160,12 @@ individual dependent resources, so the VPC, subnet, routing, and security group
 are switched together. Always run and review `terraform plan` after changing a
 control.
 
+Controls also enforce their prerequisites during input validation. For example,
+`enable_frontend_host = 1` requires both `enable_network = 1` and
+`enable_container_registry = 1`; Terraform reports a fatal validation error for
+an invalid combination, so it cannot be applied. Terraform may still display a
+partial plan for independent components before reporting that error.
+
 ### Frontend host identity
 
 `enable_frontend_host` creates the IAM role, instance profile, one EC2 origin,
@@ -136,3 +189,11 @@ lifecycle policy permanently retains the three newest tagged images for
 rollback and expires untagged images after three days to control storage cost.
 Terraform does not build or push images; the frontend deployment workflow does
 that after the repository is available.
+
+## Edge protection
+
+`enable_edge_delivery` creates the CloudFront-scoped WAF foundation in
+`us-east-1`. Its single rule tracks source IP addresses, evaluates only POST
+requests over 60 seconds, and returns `429` after 15 requests. CloudWatch
+metrics and sampled requests are enabled; CloudFront itself is added in the
+next edge-delivery increment and will attach this web ACL.
