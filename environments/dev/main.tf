@@ -52,6 +52,10 @@ module "edge_delivery" {
   count  = var.enable_edge_delivery
   source = "../../modules/edge_delivery"
 
+  # CloudFront reads the origin secret from SSM, which the host component
+  # creates. This ordering defers that read until the same apply has created it.
+  depends_on = [module.frontend_host]
+
   providers = {
     aws = aws.us_east_1
   }
