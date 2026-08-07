@@ -22,11 +22,13 @@ data "aws_iam_policy_document" "assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Only jobs explicitly using the protected GitHub dev environment may deploy.
+    # This GitHub organization uses a customized OIDC subject that includes
+    # immutable owner and repository IDs. Keep the environment restriction so
+    # only protected dev jobs from this repository can assume the role.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:Stentzler/caged-frontend-next:environment:dev"]
+      values   = ["repo:Stentzler@79855747/caged-frontend-next@1327116913:environment:dev"]
     }
   }
 }

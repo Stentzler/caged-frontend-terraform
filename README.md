@@ -233,6 +233,11 @@ the restricted OIDC role to push an immutable image and request the SSM command.
 This keeps account-specific server configuration out of the image, Git history,
 and the browser bundle.
 
+The GitHub organization uses a customized OIDC subject containing immutable
+owner and repository IDs. The deployment role trust policy must match the
+subject emitted by the `dev` environment job exactly; do not replace it with
+the default repository-name-only subject during IAM maintenance.
+
 After the approved Terraform apply, the frontend repository can store the
 following **non-secret** GitHub `dev` environment variable for its deployment
 workflow:
