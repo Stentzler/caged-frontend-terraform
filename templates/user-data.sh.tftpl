@@ -5,10 +5,63 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Docker runs the Next.js container, Nginx protects the origin, and curl checks
+# the local health endpoint during deployment. AWS CLI v2 is installed below
+# from AWS's official bundle rather than from Ubuntu's repository package.
 apt-get update -y
-apt-get install -y awscli docker.io nginx
+apt-get install -y ca-certificates curl docker.io nginx unzip
 
-systemctl enable --now amazon-ssm-agent docker nginx
+# The official AWS CLI bundle has a different archive for each CPU architecture.
+# Explicitly selecting it prevents an x86_64 binary from being installed on a
+# future ARM instance by accident.
+case "$(uname -m)" in
+  x86_64)
+    aws_cli_architecture="x86_64"
+    ;;
+  aarch64 | arm64)
+    aws_cli_architecture="aarch64"
+    ;;
+  *)
+    echo "Unsupported architecture for AWS CLI v2: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
+
+# mktemp gives this download a unique, narrow cleanup target. The trap runs on
+# both success and failure, so no installer archive remains on the root volume.
+aws_cli_install_directory="$(mktemp -d)"
+trap 'rm -rf "$aws_cli_install_directory"' EXIT
+
+curl --fail --silent --show-error --location \
+  "https://awscli.amazonaws.com/awscli-exe-linux-$${aws_cli_architecture}.zip" \
+  --output "$${aws_cli_install_directory}/awscliv2.zip"
+unzip -q "$${aws_cli_install_directory}/awscliv2.zip" -d "$${aws_cli_install_directory}"
+"$${aws_cli_install_directory}/aws/install" --update
+hash -r
+
+# These checks make a broken installation fail cloud-init immediately instead
+# of allowing a later deployment to discover that the `aws` command is absent.
+command -v aws
+aws --version
+command -v docker
+docker --version
+command -v curl
+curl --version
+
+# Ubuntu 24.04 provides SSM Agent as a Snap. The generic amazon-ssm-agent
+# systemd unit used by other distributions is not the supported Ubuntu service.
+if ! snap list amazon-ssm-agent >/dev/null 2>&1; then
+  snap install amazon-ssm-agent --classic
+fi
+
+if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service; then
+  snap start amazon-ssm-agent
+fi
+
+systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent.service
+systemctl enable --now docker nginx
+systemctl is-active --quiet docker
+systemctl is-active --quiet nginx
 
 # IAM role propagation can take a short time after instance creation, so retry
 # securely obtaining the origin secret with the instance's temporary credentials.

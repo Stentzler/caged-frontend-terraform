@@ -210,6 +210,13 @@ limit to POST requests, returning `429` when the small burst allowance is
 exceeded. CloudFront configuration to send these headers is the next edge
 delivery step.
 
+The Ubuntu 24.04 bootstrap installs Docker, Nginx, `curl`, and the official AWS
+CLI v2 bundle. It verifies each required command before continuing. Ubuntu's
+SSM Agent uses the Snap service
+`snap.amazon-ssm-agent.amazon-ssm-agent.service`, which the bootstrap verifies
+before it relies on Parameter Store. A failure stops cloud-init early instead
+of leaving an apparently created but unusable deployment host.
+
 ## Frontend image retention
 
 The private ECR repository stores immutable frontend release images. Its

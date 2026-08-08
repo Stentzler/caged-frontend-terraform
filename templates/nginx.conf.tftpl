@@ -7,7 +7,9 @@ server_tokens off;
 # malformed headers from collapsing unrelated clients into one rate-limit key.
 map $http_cloudfront_viewer_address $trusted_viewer_ip {
   default "";
-  ~^(?<trusted_ipv4>[0-9]{1,3}(?:\.[0-9]{1,3}){3}):[0-9]+$ $trusted_ipv4;
+  # Nginx treats curly braces as configuration syntax unless this regular
+  # expression is quoted. The quotes preserve the IPv4 repetition ranges.
+  "~^(?<trusted_ipv4>[0-9]{1,3}(?:\.[0-9]{1,3}){3}):[0-9]+$" $trusted_ipv4;
   ~^\[(?<trusted_ipv6>[0-9A-Fa-f:]+)\]:[0-9]+$ $trusted_ipv6;
 }
 
