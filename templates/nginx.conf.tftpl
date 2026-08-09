@@ -22,6 +22,14 @@ map $request_method $analytics_rate_limit_key {
   POST $trusted_viewer_ip;
 }
 
+# Static cache behaviors do not need the viewer address. A POST without a
+# parsed address would bypass the per-viewer rate-limit key, so reject only
+# that invalid analytics request before it reaches the upstream application.
+map "$request_method:$trusted_viewer_ip" $reject_untrusted_analytics_request {
+  default 0;
+  "POST:" 1;
+}
+
 # Fifteen requests per minute is the exact origin-level layer; WAF remains the
 # earlier, approximate CloudFront layer with the same intended threshold.
 limit_req_zone $analytics_rate_limit_key zone=analytics_post_limit:10m rate=15r/m;
@@ -43,10 +51,10 @@ server {
     return 403;
   }
 
-  # The network rule already restricts this header to CloudFront callers. A
-  # malformed or absent trusted viewer address must fail instead of sharing a
-  # fallback rate-limit bucket with other clients.
-  if ($trusted_viewer_ip = "") {
+  # GET requests can serve static assets without a viewer-address header. A
+  # malformed or absent address is rejected only for analytics POST requests,
+  # where accepting it would bypass the per-viewer rate limit.
+  if ($reject_untrusted_analytics_request) {
     return 400;
   }
 
