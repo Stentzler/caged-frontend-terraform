@@ -163,6 +163,16 @@ resource "aws_instance" "frontend_host" {
   depends_on = [aws_iam_role_policy.frontend_host]
 }
 
+# This non-secret value follows the EC2 lifecycle. Deployment automation reads
+# it through its own narrowly scoped role instead of keeping an instance ID in
+# a GitHub environment variable.
+resource "aws_ssm_parameter" "deployment_target" {
+  name  = var.deployment_target_parameter_name
+  type  = "String"
+  value = aws_instance.frontend_host.id
+  tags  = var.tags
+}
+
 # A separate Elastic IP preserves the origin address when EC2 is replaced.
 resource "aws_eip" "frontend_host" {
   domain = "vpc"

@@ -47,6 +47,18 @@ variable "runtime_environment_parameter_name" {
   }
 }
 
+# GitHub reads this non-secret parameter to discover the current deployment
+# target after Terraform replaces the EC2 host.
+variable "deployment_target_parameter_name" {
+  description = "SSM parameter name containing the current frontend deployment target instance ID."
+  type        = string
+
+  validation {
+    condition     = can(regex("^/[A-Za-z0-9_./-]+$", var.deployment_target_parameter_name))
+    error_message = "deployment_target_parameter_name must be an absolute SSM parameter path."
+  }
+}
+
 # These public values are runtime configuration, not image build arguments.
 # Reject newlines so every value remains exactly one KEY=value env-file line.
 variable "site_official_source_url" {

@@ -262,6 +262,11 @@ The workflow passes that parameter name to its SSM deployment script. The
 script runs on EC2, where the instance role retrieves the value; it must never
 print the env-file or give GitHub permission to read it.
 
+Terraform also maintains `/caged/dev/frontend/deployment-target-instance-id`, a
+non-secret String containing the current EC2 instance ID. GitHub reads only
+this stable parameter path through its OIDC role before deployment, avoiding a
+manually maintained instance ID after a host replacement.
+
 ## Edge protection
 
 `enable_edge_delivery` creates the CloudFront-scoped WAF foundation in

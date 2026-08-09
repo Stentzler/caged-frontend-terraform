@@ -2,14 +2,16 @@
 # origin unusable unless CloudFront also presents the generated secret header.
 server_tokens off;
 
-# CloudFront-Viewer-Address has IPv4 as "address:port" and IPv6 as
-# "[address]:port". Anything else stays empty and is rejected below, preventing
+# CloudFront-Viewer-Address has IPv4 as "address:port". CloudFront currently
+# sends IPv6 without brackets followed by its port, but accept the bracketed
+# form too. Anything else stays empty and is rejected below, preventing
 # malformed headers from collapsing unrelated clients into one rate-limit key.
 map $http_cloudfront_viewer_address $trusted_viewer_ip {
   default "";
   # Nginx treats curly braces as configuration syntax unless this regular
   # expression is quoted. The quotes preserve the IPv4 repetition ranges.
   "~^(?<trusted_ipv4>[0-9]{1,3}(?:\.[0-9]{1,3}){3}):[0-9]+$" $trusted_ipv4;
+  ~^(?<trusted_ipv6_unbracketed>[0-9A-Fa-f:]+):[0-9]+$ $trusted_ipv6_unbracketed;
   ~^\[(?<trusted_ipv6>[0-9A-Fa-f:]+)\]:[0-9]+$ $trusted_ipv6;
 }
 

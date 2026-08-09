@@ -48,6 +48,13 @@ output "frontend_runtime_environment_parameter_name" {
   value       = one(module.frontend_host[*].runtime_environment_parameter_name)
 }
 
+# GitHub deployment automation reads this non-secret parameter to find the
+# current EC2 target after Terraform replaces the host.
+output "frontend_deployment_target_parameter_name" {
+  description = "SSM parameter name containing the current frontend deployment target instance ID, or null when enable_frontend_host is 0."
+  value       = one(module.frontend_host[*].deployment_target_parameter_name)
+}
+
 # This ARN will be associated directly with CloudFront in the next edge step.
 output "frontend_waf_web_acl_arn" {
   description = "ARN of the CloudFront WAF web ACL, or null when enable_edge_delivery is 0."

@@ -42,6 +42,7 @@ module "frontend_host" {
   security_group_id                  = one(module.network[*].frontend_origin_security_group_id)
   aws_region                         = var.aws_region
   runtime_environment_parameter_name = local.runtime_environment_parameter_name
+  deployment_target_parameter_name   = local.deployment_target_parameter_name
   site_official_source_url           = var.site_official_source_url
   site_cbo_source_url                = var.site_cbo_source_url
   site_github_url                    = var.site_github_url
@@ -70,10 +71,11 @@ module "edge_delivery" {
 }
 
 module "github_deployment" {
-  count          = var.enable_github_deployment
-  source         = "../../modules/github_deployment"
-  name           = "${local.name_prefix}-dev"
-  repository_arn = one(module.container_registry[*].repository_arn)
-  instance_id    = one(module.frontend_host[*].instance_id)
-  tags           = local.tags
+  count                           = var.enable_github_deployment
+  source                          = "../../modules/github_deployment"
+  name                            = "${local.name_prefix}-dev"
+  repository_arn                  = one(module.container_registry[*].repository_arn)
+  instance_id                     = one(module.frontend_host[*].instance_id)
+  deployment_target_parameter_arn = one(module.frontend_host[*].deployment_target_parameter_arn)
+  tags                            = local.tags
 }

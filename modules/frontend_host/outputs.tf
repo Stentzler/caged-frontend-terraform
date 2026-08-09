@@ -34,6 +34,18 @@ output "runtime_environment_parameter_name" {
   value       = aws_ssm_parameter.runtime_environment.name
 }
 
+# The value is intentionally not output; deployment tooling needs only this
+# stable path and obtains the current instance ID through its IAM role.
+output "deployment_target_parameter_name" {
+  description = "SSM parameter name containing the current frontend deployment target instance ID."
+  value       = aws_ssm_parameter.deployment_target.name
+}
+
+output "deployment_target_parameter_arn" {
+  description = "ARN of the non-secret SSM parameter used to resolve the frontend deployment target."
+  value       = aws_ssm_parameter.deployment_target.arn
+}
+
 # CloudFront requires a resolvable hostname for its custom origin.
 output "origin_domain_name" {
   description = "Public DNS hostname for the Elastic IP used as the CloudFront origin."

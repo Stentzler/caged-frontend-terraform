@@ -49,6 +49,13 @@ data "aws_iam_policy_document" "deployment" {
     actions   = ["ssm:SendCommand"]
     resources = ["arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}::document/AWS-RunShellScript", "arn:${data.aws_partition.current.partition}:ec2:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:instance/${var.instance_id}"]
   }
+  # The workflow reads only this non-secret parameter to discover the current
+  # host after Terraform replaces its instance ID.
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [var.deployment_target_parameter_arn]
+  }
   # SSM does not expose command-invocation ARNs for GetCommandInvocation. Limit
   # its required wildcard permission to this deployment Region; SendCommand
   # remains separately restricted to the approved document and EC2 instance.
