@@ -201,8 +201,10 @@ and its stable Elastic IP as one component. The role grants only Systems
 Manager Session Manager access, pull access to this project's ECR repository,
 and direct invocation of the configured query Lambda alias.
 
-The host now uses an encrypted GP3 root volume, IMDSv2, no SSH key, and an
-Elastic IP reserved only for the future CloudFront origin. Nginx accepts the
+The host now uses an encrypted GP3 root volume, mandatory IMDSv2 tokens, no SSH
+key, and an Elastic IP reserved only for the future CloudFront origin. Its IMDS
+hop limit is `2`, which lets the loopback-bound Docker runtime obtain the same
+temporary instance-role credentials without enabling IMDSv1. Nginx accepts the
 origin request only when the network source is CloudFront and CloudFront sends
 the generated verification header. It also requires the trusted
 `CloudFront-Viewer-Address` header and applies an exact 15-per-minute rate

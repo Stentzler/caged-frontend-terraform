@@ -130,7 +130,7 @@ resource "aws_iam_instance_profile" "frontend_host" {
 }
 
 # No SSH key is configured. IMDSv2 provides short-lived IAM credentials to the
-# host for ECR, SSM, and Lambda access.
+# host and its Dockerized Next.js runtime for ECR, SSM, and Lambda access.
 resource "aws_instance" "frontend_host" {
   ami                         = data.aws_ssm_parameter.ubuntu_2404_ami.value
   instance_type               = var.instance_type
@@ -145,8 +145,10 @@ resource "aws_instance" "frontend_host" {
   })
 
   metadata_options {
-    http_endpoint               = "enabled"
-    http_put_response_hop_limit = 1
+    http_endpoint = "enabled"
+    # A Docker bridge adds one network hop between the container and IMDS.
+    # Keep IMDSv2 mandatory while allowing the runtime to obtain its role credentials.
+    http_put_response_hop_limit = 2
     http_tokens                 = "required"
   }
 
