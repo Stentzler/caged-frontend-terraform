@@ -24,6 +24,7 @@ query_lambda_alias_arn = "arn:aws:lambda:us-east-1:123456789012:function:caged-d
 
 # These are runtime values rendered into one SSM parameter and read only by the
 # EC2 host during deployment. Use real public values in ignored terraform.tfvars.
+site_url                 = "https://dataempregos.example.com"
 site_official_source_url = "https://example.com/official-caged-source"
 site_cbo_source_url      = "https://example.com/cbo-source"
 site_github_url          = "https://github.com/example"

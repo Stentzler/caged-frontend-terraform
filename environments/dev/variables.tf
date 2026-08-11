@@ -105,6 +105,16 @@ variable "query_lambda_alias_arn" {
 # These values appear in public frontend pages, but they are runtime settings
 # rather than Docker build inputs. Real development values belong in ignored
 # terraform.tfvars; the committed example uses safe placeholders.
+variable "site_url" {
+  description = "Canonical public site URL used by the frontend for search metadata."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_url)) && !strcontains(var.site_url, "\n")
+    error_message = "site_url must be a single-line HTTPS URL."
+  }
+}
+
 variable "site_official_source_url" {
   description = "Public official Novo CAGED source URL rendered by the frontend."
   type        = string

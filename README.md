@@ -259,9 +259,9 @@ that after the repository is available.
 
 The EC2 host owns one non-secret SSM Parameter Store `String` per environment:
 `/caged/dev/frontend/runtime-env`. Terraform renders its value as an env-file
-containing the AWS Region, qualified query-Lambda alias ARN, and the public
-source, GitHub, and contact links required by Next.js. The actual parameter
-value is never an output.
+containing the AWS Region, qualified query-Lambda alias ARN, canonical public
+site URL, and the public source, GitHub, and contact links required by Next.js.
+The actual parameter value is never an output.
 
 During an application deployment, the SSM command runs on EC2 and the instance
 role reads this exact parameter before Docker starts the container with it as an

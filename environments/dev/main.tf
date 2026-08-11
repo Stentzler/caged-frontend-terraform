@@ -43,6 +43,7 @@ module "frontend_host" {
   aws_region                         = var.aws_region
   runtime_environment_parameter_name = local.runtime_environment_parameter_name
   deployment_target_parameter_name   = local.deployment_target_parameter_name
+  site_url                           = var.site_url
   site_official_source_url           = var.site_official_source_url
   site_cbo_source_url                = var.site_cbo_source_url
   site_github_url                    = var.site_github_url

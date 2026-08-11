@@ -18,6 +18,12 @@ data "aws_ssm_parameter" "ubuntu_2404_ami" {
   name = "/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id"
 }
 
+# The runtime parameter name is a stable module input. Constructing its exact
+# ARN avoids treating a value-only update as an IAM policy change.
+data "aws_caller_identity" "current" {}
+
+data "aws_partition" "current" {}
+
 # This secret authenticates CloudFront to Nginx. It is never an output.
 resource "random_password" "origin_verification" {
   length  = 48
@@ -42,6 +48,7 @@ resource "aws_ssm_parameter" "runtime_environment" {
   value = templatefile("${path.module}/../../templates/runtime-env.tftpl", {
     aws_region               = var.aws_region
     query_lambda_alias_arn   = var.query_lambda_alias_arn
+    site_url                 = var.site_url
     site_official_source_url = var.site_official_source_url
     site_cbo_source_url      = var.site_cbo_source_url
     site_github_url          = var.site_github_url
@@ -100,7 +107,7 @@ data "aws_iam_policy_document" "instance" {
     # parameter. It cannot enumerate or read unrelated account parameters.
     resources = [
       aws_ssm_parameter.origin_verification.arn,
-      aws_ssm_parameter.runtime_environment.arn,
+      "arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.runtime_environment_parameter_name}",
     ]
   }
 }

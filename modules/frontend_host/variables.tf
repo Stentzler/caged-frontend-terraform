@@ -61,6 +61,16 @@ variable "deployment_target_parameter_name" {
 
 # These public values are runtime configuration, not image build arguments.
 # Reject newlines so every value remains exactly one KEY=value env-file line.
+variable "site_url" {
+  description = "Canonical public site URL used by the frontend for search metadata."
+  type        = string
+
+  validation {
+    condition     = can(regex("^https://", var.site_url)) && !strcontains(var.site_url, "\n")
+    error_message = "site_url must be a single-line HTTPS URL."
+  }
+}
+
 variable "site_official_source_url" {
   description = "Public official Novo CAGED source URL rendered by the frontend."
   type        = string
