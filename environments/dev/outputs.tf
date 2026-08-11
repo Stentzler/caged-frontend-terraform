@@ -65,3 +65,10 @@ output "frontend_cloudfront_domain_name" {
   description = "CloudFront viewer hostname, or null when enable_edge_delivery is 0."
   value       = one(module.edge_delivery[*].distribution_domain_name)
 }
+
+# Add these records to the DNS provider only after the certificate request is
+# applied. This phase does not yet attach the certificate to CloudFront.
+output "frontend_custom_domain_validation_records" {
+  description = "DNS CNAME records required for the pending custom-domain ACM certificate."
+  value       = one(module.edge_delivery[*].custom_domain_validation_records)
+}

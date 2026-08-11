@@ -31,6 +31,29 @@ variable "aws_region" {
   }
 }
 
+# The certificate is issued only after the owner deliberately enables the
+# custom-domain phase. CloudFront certificates must be requested in us-east-1.
+variable "viewer_domain_name" {
+  description = "Optional fully qualified custom hostname served by CloudFront, such as dataempregos.example.com."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.viewer_domain_name == null || (
+      var.viewer_domain_name == lower(var.viewer_domain_name) &&
+      can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.viewer_domain_name)) &&
+      strcontains(var.viewer_domain_name, ".")
+    )
+    error_message = "viewer_domain_name must be a lowercase fully qualified domain name, such as dataempregos.example.com."
+  }
+
+  validation {
+    condition     = var.enable_custom_domain == 0 || var.viewer_domain_name != null
+    error_message = "viewer_domain_name is required when enable_custom_domain is 1."
+  }
+}
+
 variable "vpc_cidr" {
   description = "IPv4 CIDR block assigned to the dedicated development VPC."
   type        = string

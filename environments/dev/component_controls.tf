@@ -70,6 +70,24 @@ variable "enable_edge_delivery" {
   }
 }
 
+# A custom viewer domain is an opt-in extension of CloudFront. Its first phase
+# creates only the ACM certificate so DNS ownership can be proven separately.
+variable "enable_custom_domain" {
+  description = "Set to 1 to request the custom-domain ACM certificate, or 0 to leave the default CloudFront hostname in use."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = contains([0, 1], var.enable_custom_domain)
+    error_message = "enable_custom_domain must be either 0 or 1."
+  }
+
+  validation {
+    condition     = var.enable_custom_domain == 0 || var.enable_edge_delivery == 1
+    error_message = "enable_custom_domain can be 1 only when enable_edge_delivery is also 1."
+  }
+}
+
 variable "enable_github_deployment" {
   description = "Set to 1 to create the GitHub OIDC deployment role, or 0 to remove it."
   type        = number

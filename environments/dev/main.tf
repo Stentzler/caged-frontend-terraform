@@ -65,6 +65,8 @@ module "edge_delivery" {
   name                          = "${local.name_prefix}-edge"
   waf_rate_limit                = var.waf_rate_limit
   waf_evaluation_window_seconds = var.waf_evaluation_window_seconds
+  enable_custom_domain          = var.enable_custom_domain
+  viewer_domain_name            = var.viewer_domain_name
   origin_domain_name            = one(module.frontend_host[*].origin_domain_name)
   origin_secret_parameter_name  = one(module.frontend_host[*].origin_verification_parameter_name)
   tags                          = local.tags

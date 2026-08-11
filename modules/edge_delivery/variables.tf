@@ -14,6 +14,17 @@ variable "waf_evaluation_window_seconds" {
   type        = number
 }
 
+variable "enable_custom_domain" {
+  description = "Whether to request the ACM certificate for the optional CloudFront viewer domain."
+  type        = number
+}
+
+variable "viewer_domain_name" {
+  description = "Optional CloudFront viewer domain covered by the ACM certificate."
+  type        = string
+  nullable    = true
+}
+
 variable "origin_domain_name" {
   description = "Resolvable EC2 hostname used as the CloudFront custom origin."
   type        = string

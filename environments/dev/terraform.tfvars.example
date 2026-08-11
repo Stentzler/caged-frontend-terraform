@@ -7,6 +7,11 @@ enable_container_registry = 1
 enable_frontend_host = 1
 enable_edge_delivery = 1
 
+# Set to 1 only to request the ACM certificate. The first custom-domain phase
+# does not change the CloudFront viewer hostname or route visitor traffic.
+enable_custom_domain = 0
+# viewer_domain_name = "dagos.example.com"
+
 aws_region          = "us-east-1"
 vpc_cidr            = "10.42.0.0/16"
 public_subnet_cidr  = "10.42.0.0/24"

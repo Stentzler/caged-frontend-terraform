@@ -134,6 +134,21 @@ resource "aws_cloudfront_origin_request_policy" "nextjs" {
   query_strings_config { query_string_behavior = "all" }
 }
 
+# CloudFront requires its viewer certificate in us-east-1. DNS validation is
+# intentionally completed outside Terraform because Registro.br hosts this zone.
+resource "aws_acm_certificate" "viewer" {
+  count = var.enable_custom_domain
+
+  domain_name       = var.viewer_domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = var.tags
+}
+
 # CloudFront is the public HTTPS entry point; its HTTP origin connection is the
 # accepted MVP trade-off, protected by the SG and the private custom header.
 resource "aws_cloudfront_distribution" "frontend" {
