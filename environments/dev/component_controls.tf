@@ -70,10 +70,10 @@ variable "enable_edge_delivery" {
   }
 }
 
-# A custom viewer domain is an opt-in extension of CloudFront. Its first phase
-# creates only the ACM certificate so DNS ownership can be proven separately.
+# A custom viewer domain is an opt-in CloudFront extension. DNS ownership must
+# be proven through ACM before the certificate can be attached to CloudFront.
 variable "enable_custom_domain" {
-  description = "Set to 1 to request the custom-domain ACM certificate, or 0 to leave the default CloudFront hostname in use."
+  description = "Set to 1 to use the custom-domain ACM certificate with CloudFront, or 0 to use the default CloudFront hostname."
   type        = number
   default     = 0
 

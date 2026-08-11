@@ -353,11 +353,15 @@ Custom-domain support is optional and controlled by input variables.
 
 When enabled:
 
-- Create or reference an ACM certificate in `us-east-1`.
-- Validate the certificate through Route 53 DNS when a hosted-zone ID is
-  supplied.
-- Add the CloudFront alias.
-- Create an alias record pointing the viewer domain to CloudFront.
+- Create a non-exportable ACM certificate in `us-east-1`.
+- Validate the certificate through DNS before associating it with CloudFront.
+- When DNS is hosted outside AWS, output the ACM validation CNAME so an
+  operator can create it with that DNS provider; do not create a Route 53 zone
+  merely for validation.
+- Add the CloudFront alias and its ACM certificate only after the certificate
+  reaches `ISSUED`.
+- Create the final public DNS CNAME or alias record at the authoritative DNS
+  provider, pointing the viewer domain to CloudFront.
 
 When disabled, output the CloudFront distribution domain and do not create
 partial certificate or DNS resources.
@@ -511,9 +515,8 @@ At minimum, expose typed and validated variables for:
 | `github_deployment_ref` | Approved branch or environment subject |
 | `github_oidc_provider_arn` | Optional existing provider ARN |
 | `create_github_oidc_provider` | Explicit account-level ownership switch |
-| `enable_custom_domain` | Controls viewer ACM and Route 53 resources |
+| `enable_custom_domain` | Controls the optional viewer ACM certificate and CloudFront alias |
 | `viewer_domain_name` | Required only when custom domain is enabled |
-| `route53_hosted_zone_id` | Required when Terraform manages DNS validation |
 | `cloudfront_price_class` | Defaults to a class that includes South America |
 | `waf_rate_limit` | Default and minimum `15` |
 | `waf_evaluation_window_seconds` | Default `60`; restricted to AWS-supported values |

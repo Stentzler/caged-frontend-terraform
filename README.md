@@ -219,15 +219,15 @@ SSM Agent uses the Snap service
 before it relies on Parameter Store. A failure stops cloud-init early instead
 of leaving an apparently created but unusable deployment host.
 
-### Custom CloudFront domain: certificate request
+### Custom CloudFront domain
 
-The first custom-domain phase requests a free, non-exportable public ACM
-certificate in `us-east-1`; it does not change the CloudFront distribution or
-visitor traffic. This certificate type is managed by AWS for CloudFront and is
+The custom-domain workflow uses a free, non-exportable public ACM certificate
+in `us-east-1`. This certificate type is managed by AWS for CloudFront and is
 not a manually imported or exportable certificate.
 
-To request a certificate for a DNS zone managed outside AWS, set the following
-in the ignored `terraform.tfvars` file:
+Request and validate the certificate before enabling the CloudFront hostname.
+For a DNS zone managed outside AWS, the initial certificate request uses the
+same configuration in the ignored `terraform.tfvars` file:
 
 ```hcl
 enable_custom_domain = 1
@@ -241,9 +241,11 @@ terraform -chdir=environments/dev output frontend_custom_domain_validation_recor
 ```
 
 Create that CNAME in the authoritative DNS provider and wait until ACM marks
-the certificate as issued. A later, separate phase attaches the issued
-certificate and hostname to CloudFront, then adds the final DNS record that
-routes visitors to the distribution.
+the certificate as issued. Then apply the same configuration again: Terraform
+attaches the issued certificate and hostname to CloudFront. Finally, add the
+separate public DNS CNAME that routes the custom hostname to the CloudFront
+distribution. Do not remove ACM's validation CNAME; ACM uses it to renew the
+certificate automatically.
 
 ## Frontend image retention
 

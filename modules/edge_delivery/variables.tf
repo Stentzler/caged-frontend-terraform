@@ -15,7 +15,7 @@ variable "waf_evaluation_window_seconds" {
 }
 
 variable "enable_custom_domain" {
-  description = "Whether to request the ACM certificate for the optional CloudFront viewer domain."
+  description = "Whether CloudFront should serve the optional viewer domain with its ACM certificate."
   type        = number
 }
 

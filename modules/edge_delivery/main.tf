@@ -155,6 +155,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "${var.name} Next.js frontend"
+  aliases             = var.enable_custom_domain == 1 ? [var.viewer_domain_name] : []
   price_class         = "PriceClass_200"
   http_version        = "http2and3"
   web_acl_id          = aws_wafv2_web_acl.frontend.arn
@@ -219,7 +220,12 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    # While no custom domain is enabled, CloudFront serves its default hostname.
+    # Once enabled, SNI selects the free ACM certificate for the viewer hostname.
+    acm_certificate_arn            = var.enable_custom_domain == 1 ? aws_acm_certificate.viewer[0].arn : null
+    cloudfront_default_certificate = var.enable_custom_domain == 0
+    minimum_protocol_version       = var.enable_custom_domain == 1 ? "TLSv1.2_2021" : null
+    ssl_support_method             = var.enable_custom_domain == 1 ? "sni-only" : null
   }
   tags = var.tags
 }

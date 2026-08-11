@@ -7,8 +7,8 @@ enable_container_registry = 1
 enable_frontend_host = 1
 enable_edge_delivery = 1
 
-# Set to 1 only to request the ACM certificate. The first custom-domain phase
-# does not change the CloudFront viewer hostname or route visitor traffic.
+# Set to 1 after ACM has issued the certificate through DNS validation. This
+# attaches the certificate and hostname to CloudFront; DNS routing is separate.
 enable_custom_domain = 0
 # viewer_domain_name = "dagos.example.com"
 
