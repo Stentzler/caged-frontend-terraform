@@ -2,7 +2,9 @@
 
 Terraform infrastructure for the CAGED Next.js frontend MVP. The approved
 architecture is CloudFront and AWS WAF in front of one EC2 instance running
-host Nginx and a loopback-bound Next.js container.
+host Nginx and a loopback-bound Next.js container. It also hosts Vinicius's
+static portfolio as a second loopback-bound Nginx container without adding an
+ALB or a second EC2 instance.
 
 ## Structure
 
@@ -254,6 +256,67 @@ lifecycle policy permanently retains the three newest tagged images for
 rollback and expires untagged images after three days to control storage cost.
 Terraform does not build or push images; the frontend deployment workflow does
 that after the repository is available.
+
+## Shared static portfolio deployment
+
+The portfolio is built as a static Next.js export and served by its own
+unprivileged Nginx container on `127.0.0.1:3001`. The existing CAGED Next.js
+container remains on `127.0.0.1:3000`. Neither port is publicly reachable.
+
+CloudFront uses a viewer-request function for every cache behavior. It removes
+any viewer-provided portfolio routing header, redirects `stentzler.com.br`
+to `www.stentzler.com.br`, and selects the portfolio origin only for the
+canonical `www` host. It prefixes portfolio cache keys internally, and host Nginx removes
+that prefix before proxying to port 3001. This keeps portfolio cached assets
+separate from CAGED assets even though both sites share a distribution.
+
+### Domain rollout
+
+The working `dataempregos.stentzler.com.br` certificate is preserved during the
+first phase. Configure the existing custom domain plus the new portfolio names:
+
+```hcl
+enable_custom_domain            = 1
+viewer_domain_name              = "dataempregos.stentzler.com.br"
+portfolio_viewer_domain_names   = ["stentzler.com.br", "www.stentzler.com.br"]
+enable_portfolio_viewer_domains = 0
+enable_portfolio_routing        = 0
+```
+
+Apply the reviewed certificate-request plan, then create every value shown by:
+
+```bash
+terraform -chdir=environments/dev output portfolio_custom_domain_validation_records
+```
+
+After ACM reports the replacement certificate as `ISSUED`, set
+`enable_portfolio_viewer_domains = 1` and `enable_portfolio_routing = 1`, review
+the second plan, and apply it. Finally, create a `www` CNAME to the CloudFront
+distribution domain. The apex record is optional because `www.stentzler.com.br`
+is the public portfolio address. Keep ACM validation records in DNS so renewal
+continues automatically.
+
+### GitHub deployment setup
+
+The portfolio repository contains its production workflow, but its dedicated
+OIDC role defaults to disabled because GitHub has not yet supplied the immutable
+repository ID contained in this organization's customized OIDC subject. After
+creating the repository and protected `production` Environment, set:
+
+```hcl
+enable_portfolio_github_deployment = 1
+portfolio_github_oidc_subject      = "repo:Stentzler@79855747/portfolio@REPOSITORY_ID:environment:production"
+```
+
+Use the resulting `portfolio_ecr_repository_url`,
+`frontend_deployment_target_parameter_name`, and
+`portfolio_deployment_role_arn` outputs as the GitHub Environment values
+documented in the portfolio repository's `.github/README.md`.
+
+Changing the Nginx template changes EC2 user data, so the approved Terraform
+plan will replace the EC2 instance. The Elastic IP and deployment-target SSM
+parameter follow the replacement, but its containers do not. Redeploy CAGED
+first, then deploy the portfolio through their respective GitHub workflows.
 
 ## Frontend runtime configuration
 

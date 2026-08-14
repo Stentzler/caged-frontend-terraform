@@ -10,6 +10,14 @@ variable "frontend_repository_arn" {
   type        = string
 }
 
+# A shared host may run an additional static portfolio container. This list
+# keeps its ECR pull permission exact instead of widening access to all ECR.
+variable "additional_repository_arns" {
+  description = "Additional private ECR repository ARNs the shared host may pull from."
+  type        = list(string)
+  default     = []
+}
+
 # The qualified alias prevents the host from invoking unreviewed Lambda versions.
 variable "query_lambda_alias_arn" {
   description = "Qualified alias ARN of the existing query Lambda the host may invoke."

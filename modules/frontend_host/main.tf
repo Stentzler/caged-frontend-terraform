@@ -89,7 +89,7 @@ data "aws_iam_policy_document" "instance" {
       "ecr:GetDownloadUrlForLayer",
       "ecr:BatchGetImage",
     ]
-    resources = [var.frontend_repository_arn]
+    resources = concat([var.frontend_repository_arn], var.additional_repository_arns)
   }
 
   statement {

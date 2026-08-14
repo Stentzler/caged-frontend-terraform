@@ -4,13 +4,25 @@
 # Set a component to 0 only with an approved plan: Terraform will destroy it.
 enable_network = 1
 enable_container_registry = 1
+enable_portfolio_container_registry = 1
 enable_frontend_host = 1
 enable_edge_delivery = 1
+enable_portfolio_github_deployment = 0
 
 # Set to 1 after ACM has issued the certificate through DNS validation. This
 # attaches the certificate and hostname to CloudFront; DNS routing is separate.
 enable_custom_domain = 0
 # viewer_domain_name = "dagos.example.com"
+
+# Stage 1: set these names and apply to request the replacement certificate.
+# Add the output CNAMEs with your DNS provider, then wait for ACM to issue it.
+portfolio_viewer_domain_names = ["stentzler.com.br", "www.stentzler.com.br"]
+# Stage 2: attach only after the certificate has issued, then enable routing.
+enable_portfolio_viewer_domains = 0
+enable_portfolio_routing        = 0
+# Stage 3: after creating this GitHub repo and its production Environment,
+# copy its exact customized subject and enable the dedicated deployment role.
+# portfolio_github_oidc_subject = "repo:Stentzler@79855747/portfolio@123456789:environment:production"
 
 aws_region          = "us-east-1"
 vpc_cidr            = "10.42.0.0/16"

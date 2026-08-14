@@ -30,6 +30,16 @@ module "container_registry" {
   tags            = local.tags
 }
 
+# The static portfolio receives its own ECR repository so lifecycle policies
+# and deployment permissions stay independent from the CAGED application image.
+module "portfolio_container_registry" {
+  count  = var.enable_portfolio_container_registry
+  source = "../../modules/container_registry"
+
+  repository_name = "${local.name_prefix}-portfolio"
+  tags            = local.tags
+}
+
 # This component creates the EC2 origin, EIP, IAM identity, and origin secret.
 module "frontend_host" {
   count  = var.enable_frontend_host
@@ -37,6 +47,7 @@ module "frontend_host" {
 
   host_name                          = "${local.name_prefix}-host"
   frontend_repository_arn            = one(module.container_registry[*].repository_arn)
+  additional_repository_arns         = module.portfolio_container_registry[*].repository_arn
   query_lambda_alias_arn             = var.query_lambda_alias_arn
   subnet_id                          = one(module.network[*].public_subnet_id)
   security_group_id                  = one(module.network[*].frontend_origin_security_group_id)
@@ -63,14 +74,17 @@ module "edge_delivery" {
     aws = aws.us_east_1
   }
 
-  name                          = "${local.name_prefix}-edge"
-  waf_rate_limit                = var.waf_rate_limit
-  waf_evaluation_window_seconds = var.waf_evaluation_window_seconds
-  enable_custom_domain          = var.enable_custom_domain
-  viewer_domain_name            = var.viewer_domain_name
-  origin_domain_name            = one(module.frontend_host[*].origin_domain_name)
-  origin_secret_parameter_name  = one(module.frontend_host[*].origin_verification_parameter_name)
-  tags                          = local.tags
+  name                            = "${local.name_prefix}-edge"
+  waf_rate_limit                  = var.waf_rate_limit
+  waf_evaluation_window_seconds   = var.waf_evaluation_window_seconds
+  enable_custom_domain            = var.enable_custom_domain
+  viewer_domain_name              = var.viewer_domain_name
+  portfolio_viewer_domain_names   = var.portfolio_viewer_domain_names
+  enable_portfolio_viewer_domains = var.enable_portfolio_viewer_domains
+  enable_portfolio_routing        = var.enable_portfolio_routing
+  origin_domain_name              = one(module.frontend_host[*].origin_domain_name)
+  origin_secret_parameter_name    = one(module.frontend_host[*].origin_verification_parameter_name)
+  tags                            = local.tags
 }
 
 module "github_deployment" {
@@ -80,5 +94,19 @@ module "github_deployment" {
   repository_arn                  = one(module.container_registry[*].repository_arn)
   instance_id                     = one(module.frontend_host[*].instance_id)
   deployment_target_parameter_arn = one(module.frontend_host[*].deployment_target_parameter_arn)
+  github_oidc_subject             = "repo:Stentzler@79855747/caged-frontend-next@1327116913:environment:dev"
+  tags                            = local.tags
+}
+
+# This role is intentionally independent from the existing CAGED deployment
+# role. It is created only after GitHub has supplied the immutable repository ID.
+module "portfolio_github_deployment" {
+  count                           = var.enable_portfolio_github_deployment
+  source                          = "../../modules/github_deployment"
+  name                            = "${local.name_prefix}-portfolio-production"
+  repository_arn                  = one(module.portfolio_container_registry[*].repository_arn)
+  instance_id                     = one(module.frontend_host[*].instance_id)
+  deployment_target_parameter_arn = one(module.frontend_host[*].deployment_target_parameter_arn)
+  github_oidc_subject             = var.portfolio_github_oidc_subject
   tags                            = local.tags
 }

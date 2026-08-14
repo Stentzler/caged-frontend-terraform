@@ -23,6 +23,16 @@ output "frontend_ecr_repository_url" {
   value       = one(module.container_registry[*].repository_url)
 }
 
+output "portfolio_ecr_repository_arn" {
+  description = "ARN of the static portfolio ECR repository, or null when it is disabled."
+  value       = one(module.portfolio_container_registry[*].repository_arn)
+}
+
+output "portfolio_ecr_repository_url" {
+  description = "URL used by the portfolio workflow to push static production images, or null when it is disabled."
+  value       = one(module.portfolio_container_registry[*].repository_url)
+}
+
 # The next EC2 step will use this profile to receive temporary AWS credentials.
 output "frontend_host_instance_profile_name" {
   description = "Name of the frontend host instance profile, or null when enable_frontend_host is 0."
@@ -71,4 +81,14 @@ output "frontend_cloudfront_domain_name" {
 output "frontend_custom_domain_validation_records" {
   description = "DNS CNAME records required for the pending custom-domain ACM certificate."
   value       = one(module.edge_delivery[*].custom_domain_validation_records)
+}
+
+output "portfolio_custom_domain_validation_records" {
+  description = "DNS CNAME records required before attaching the staged portfolio certificate to CloudFront."
+  value       = one(module.edge_delivery[*].portfolio_domain_validation_records)
+}
+
+output "portfolio_deployment_role_arn" {
+  description = "GitHub Actions role ARN for protected portfolio production deployments, or null until enabled."
+  value       = one(module.portfolio_github_deployment[*].role_arn)
 }

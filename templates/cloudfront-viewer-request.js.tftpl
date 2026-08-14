@@ -1,0 +1,60 @@
+import cf from 'cloudfront';
+
+var canonicalPortfolioHost = '${portfolio_domain_name}';
+var redirectingPortfolioHost = '${portfolio_redirect_domain_name}';
+var portfolioOriginId = '${portfolio_origin_id}';
+
+function queryStringToText(querystring) {
+  var encodedEntries = [];
+
+  for (var name in querystring) {
+    if (Object.prototype.hasOwnProperty.call(querystring, name)) {
+      var queryValue = querystring[name].value;
+      var encodedName = encodeURIComponent(name);
+      var encodedValue = queryValue === undefined ? '' : '=' + encodeURIComponent(queryValue);
+
+      encodedEntries.push(encodedName + encodedValue);
+    }
+  }
+
+  return encodedEntries.join('&');
+}
+
+function redirectToCanonicalHost(request) {
+  var queryString = queryStringToText(request.querystring);
+  var location = 'https://' + canonicalPortfolioHost + request.uri;
+
+  if (queryString) {
+    location += '?' + queryString;
+  }
+
+  return {
+    statusCode: 301,
+    statusDescription: 'Moved Permanently',
+    headers: {
+      location: { value: location },
+    },
+  };
+}
+
+function handler(event) {
+  var request = event.request;
+  var hostHeader = request.headers.host;
+  var host = hostHeader ? hostHeader.value.toLowerCase() : '';
+
+  // Prevent a viewer from selecting the internal portfolio origin header.
+  delete request.headers['x-portfolio-origin'];
+
+  if (host === redirectingPortfolioHost) {
+    return redirectToCanonicalHost(request);
+  }
+
+  if (host === canonicalPortfolioHost) {
+    // Prefixing separates the shared CloudFront cache key without changing the
+    // selected cache behavior; the portfolio Nginx location strips it again.
+    request.uri = '/_portfolio' + request.uri;
+    cf.selectRequestOriginById(portfolioOriginId);
+  }
+
+  return request;
+}

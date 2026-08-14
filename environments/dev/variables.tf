@@ -54,6 +54,44 @@ variable "viewer_domain_name" {
   }
 }
 
+# The portfolio names are SANs on a staged replacement certificate whose
+# primary name remains the existing CAGED viewer domain.
+variable "portfolio_viewer_domain_names" {
+  description = "Portfolio hostnames added to the staged shared CloudFront certificate, such as stentzler.com.br and www.stentzler.com.br."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for domain_name in var.portfolio_viewer_domain_names :
+      domain_name == lower(domain_name) &&
+      can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", domain_name)) &&
+      strcontains(domain_name, ".")
+    ])
+    error_message = "portfolio_viewer_domain_names must contain lowercase fully qualified domain names."
+  }
+
+  validation {
+    condition     = length(var.portfolio_viewer_domain_names) == 0 || var.viewer_domain_name != null
+    error_message = "viewer_domain_name is required when requesting the staged portfolio certificate."
+  }
+}
+
+variable "portfolio_github_oidc_subject" {
+  description = "Exact organization-customized GitHub OIDC subject for the protected production environment."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition = var.enable_portfolio_github_deployment == 0 || (
+      var.portfolio_github_oidc_subject != null &&
+      can(regex("^repo:Stentzler@[0-9]+/portfolio@[0-9]+:environment:production$", var.portfolio_github_oidc_subject))
+    )
+    error_message = "portfolio_github_oidc_subject must be the exact protected production subject for the portfolio repository when its deployment role is enabled."
+  }
+}
+
 variable "vpc_cidr" {
   description = "IPv4 CIDR block assigned to the dedicated development VPC."
   type        = string

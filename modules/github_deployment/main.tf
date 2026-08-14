@@ -23,12 +23,12 @@ data "aws_iam_policy_document" "assume_role" {
     }
 
     # This GitHub organization uses a customized OIDC subject that includes
-    # immutable owner and repository IDs. Keep the environment restriction so
-    # only protected dev jobs from this repository can assume the role.
+    # immutable owner and repository IDs. The caller supplies the exact
+    # protected-environment subject for its own repository.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:Stentzler@79855747/caged-frontend-next@1327116913:environment:dev"]
+      values   = [var.github_oidc_subject]
     }
   }
 }

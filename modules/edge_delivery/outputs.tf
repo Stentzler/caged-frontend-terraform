@@ -21,3 +21,16 @@ output "custom_domain_validation_records" {
     }
   ] : []
 }
+
+# This separate certificate is requested before attachment so DNS can be
+# validated without changing the working CAGED CloudFront certificate.
+output "portfolio_domain_validation_records" {
+  description = "DNS CNAME records required to validate the staged multi-domain portfolio ACM certificate."
+  value = length(var.portfolio_viewer_domain_names) > 0 ? [
+    for option in aws_acm_certificate.portfolio_viewer[0].domain_validation_options : {
+      name  = option.resource_record_name
+      type  = option.resource_record_type
+      value = option.resource_record_value
+    }
+  ] : []
+}

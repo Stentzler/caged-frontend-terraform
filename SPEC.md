@@ -48,7 +48,8 @@ The following decisions are fixed for the MVP:
 1. The public entry point is Amazon CloudFront.
 2. AWS WAF is associated with the CloudFront distribution.
 3. No Application Load Balancer is provisioned.
-4. A single EC2 instance runs Nginx and the Next.js container.
+4. A single EC2 instance runs host Nginx, the CAGED Next.js container, and an
+   independently deployed static portfolio container.
 5. The EC2 origin is public for cost-efficient outbound AWS API access, but
    inbound application traffic is restricted to CloudFront origin-facing
    addresses.
@@ -57,7 +58,8 @@ The following decisions are fixed for the MVP:
 7. CloudFront provides viewer HTTPS. The MVP origin connection is HTTP because
    ACM certificates cannot be installed directly on EC2 and a private origin
    would require additional outbound networking infrastructure.
-8. Nginx proxies only to a Next.js process bound to the loopback interface.
+8. Nginx proxies only to loopback-bound application containers: CAGED Next.js
+   on port 3000 and the static portfolio server on port 3001.
 9. Next.js invokes Lambda synchronously with the AWS SDK and temporary
    credentials from the EC2 instance role.
 10. API Gateway is not provisioned or called by this frontend.
@@ -88,7 +90,8 @@ The following decisions are fixed for the MVP:
 5. The EC2 security group accepts origin traffic only from the AWS-managed
    CloudFront origin-facing prefix list.
 6. Nginx verifies the origin secret and applies the local rate limit.
-7. Nginx proxies the request to Next.js on `127.0.0.1:3000`.
+7. Nginx proxies CAGED requests to Next.js on `127.0.0.1:3000`; CloudFront
+   routes the approved portfolio host to a static container on `127.0.0.1:3001`.
 8. Next.js invokes the required Lambda with the EC2 instance role.
 9. The Lambda reads its DynamoDB data and returns its existing contract.
 10. Next.js parses the Lambda response and renders the result.
@@ -102,7 +105,7 @@ The following decisions are fixed for the MVP:
 - VPC, subnet, route table, internet gateway, and security groups.
 - EC2 instance, encrypted EBS volume, Elastic IP, IAM instance profile, and
   bootstrap configuration.
-- ECR repository for the Next.js image.
+- ECR repositories for the CAGED Next.js and static portfolio images.
 - Nginx installation and baseline reverse-proxy configuration.
 - CloudFront distribution, cache behaviors, origin headers, and viewer TLS.
 - AWS WAF web ACL and rate-based rule.
@@ -261,6 +264,7 @@ The instance must:
 - Register with AWS Systems Manager.
 - Run Nginx as a host service.
 - Run the Next.js image as a Docker container bound to `127.0.0.1:3000`.
+- Run the static portfolio image as a Docker container bound to `127.0.0.1:3001`.
 - Restart Nginx and the application container after reboot.
 - Apply an idempotent bootstrap script suitable for a replacement instance.
 - Avoid embedding AWS credentials or application secrets in user data.
@@ -286,6 +290,8 @@ configuration must:
 - Avoid applying the analytics rate limit to static assets and normal GET page
   navigation.
 - Proxy dynamic traffic to `http://127.0.0.1:3000`.
+- Route CloudFront-selected portfolio requests to `http://127.0.0.1:3001` only
+  after the same origin-secret validation.
 - Preserve the viewer host and communicate the original HTTPS scheme to Next.js
   with trusted proxy headers.
 - Set practical proxy connection, response, and body-size limits.
@@ -347,6 +353,12 @@ Do not cache POST responses, personalized responses, errors, or server-action
 responses. Cache configuration must be covered by an integration checklist in
 the README.
 
+The shared distribution additionally uses a viewer-request CloudFront Function
+for all cache behaviors. It must remove viewer-supplied portfolio route headers,
+redirect `stentzler.com.br` to `www.stentzler.com.br`, select the protected
+portfolio origin only for the canonical `www` host, and isolate portfolio cache keys from
+CAGED paths. The function must not permit a viewer to select an origin directly.
+
 ### 12.4 Custom viewer domain
 
 Custom-domain support is optional and controlled by input variables.
@@ -402,7 +414,7 @@ and sampled requests must still be available for tuning and troubleshooting.
 The EC2 instance role receives only the permissions required to:
 
 - Register and operate through Systems Manager.
-- Pull the frontend image from its specific ECR repository.
+- Pull images from the specific CAGED and portfolio ECR repositories.
 - Read the specific SSM parameters required by Nginx and the Next.js runtime.
 - Invoke the qualified production alias ARN of the existing query Lambda.
 - Invoke the qualified production alias ARN of the future CBO Lambda after its
@@ -421,7 +433,7 @@ resources belong in this repository.
 Provision or integrate with GitHub OIDC. The trust policy must be restricted to:
 
 - The expected GitHub organization or owner.
-- The `caged-frontend-next` repository.
+- The intended CAGED or portfolio repository.
 - The approved deployment branch or protected environment.
 
 The deployment role may:
@@ -439,7 +451,8 @@ must not create a duplicate provider when one already exists.
 
 ## 15. ECR specification
 
-Create one private ECR repository for `caged-frontend-next` with:
+Create private ECR repositories for `caged-frontend-next` and the static
+portfolio, each with:
 
 - Encryption at rest.
 - Immutable release tags.
@@ -470,6 +483,9 @@ The `caged-frontend-next` deployment workflow is expected to:
 Terraform must output the non-secret identifiers required by this workflow.
 Terraform must not run application deployment through `local-exec`,
 `remote-exec`, or provisioners.
+
+The portfolio workflow follows the same immutable-image, SSM, local-health,
+and rollback contract, but starts its static server only on `127.0.0.1:3001`.
 
 ## 17. Lambda integration contract
 
@@ -517,6 +533,10 @@ At minimum, expose typed and validated variables for:
 | `create_github_oidc_provider` | Explicit account-level ownership switch |
 | `enable_custom_domain` | Controls the optional viewer ACM certificate and CloudFront alias |
 | `viewer_domain_name` | Required only when custom domain is enabled |
+| `portfolio_viewer_domain_names` | Staged portfolio SANs on the shared viewer certificate |
+| `enable_portfolio_viewer_domains` | Attaches the validated replacement certificate and aliases |
+| `enable_portfolio_routing` | Enables CloudFront host routing to the portfolio origin |
+| `portfolio_github_oidc_subject` | Exact protected production subject after the `portfolio` repository exists |
 | `cloudfront_price_class` | Defaults to a class that includes South America |
 | `waf_rate_limit` | Default and minimum `15` |
 | `waf_evaluation_window_seconds` | Default `60`; restricted to AWS-supported values |
@@ -538,6 +558,8 @@ Output only non-secret values required for operation and deployment:
   used by visitors.
 - SSM deployment target tag or instance identifier.
 - GitHub deployment role ARN.
+- Portfolio ECR repository URL and ARN, staged certificate validation records,
+  and dedicated deployment role ARN when enabled.
 - Query Lambda alias ARN used by the instance policy.
 - CBO Lambda alias ARN when configured.
 - WAF web ACL ARN.

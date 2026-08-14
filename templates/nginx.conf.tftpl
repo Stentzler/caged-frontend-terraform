@@ -30,6 +30,14 @@ map "$request_method:$trusted_viewer_ip" $reject_untrusted_analytics_request {
   "POST:" 1;
 }
 
+# The second CloudFront origin adds this header only after its viewer-request
+# function removes any user-provided copy. It selects the static portfolio
+# container without exposing its loopback port to the public network.
+map $http_x_portfolio_origin $is_portfolio_origin {
+  default 0;
+  "portfolio" 1;
+}
+
 # Fifteen requests per minute is the exact origin-level layer; WAF remains the
 # earlier, approximate CloudFront layer with the same intended threshold.
 limit_req_zone $analytics_rate_limit_key zone=analytics_post_limit:10m rate=15r/m;
@@ -58,10 +66,32 @@ server {
     return 400;
   }
 
+  # An internal redirect keeps the portfolio location separate while sharing
+  # the same origin-secret verification and CloudFront-only network boundary.
+  error_page 418 = @portfolio;
+
   location / {
+    if ($is_portfolio_origin) {
+      return 418;
+    }
+
     limit_req zone=analytics_post_limit burst=2 nodelay;
     limit_req_status 429;
     proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For "";
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 60s;
+    proxy_send_timeout 60s;
+  }
+
+  location @portfolio {
+    # CloudFront prefixes portfolio URIs solely to isolate shared-distribution
+    # cache keys. Strip it before Nginx requests the static export route.
+    rewrite ^/_portfolio/(.*)$ /$1 break;
+    proxy_pass http://127.0.0.1:3001;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto https;

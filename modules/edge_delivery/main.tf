@@ -149,13 +149,48 @@ resource "aws_acm_certificate" "viewer" {
   tags = var.tags
 }
 
+# Request the replacement certificate separately before attaching it. This
+# keeps dataempregos available while its existing certificate remains active.
+resource "aws_acm_certificate" "portfolio_viewer" {
+  count = length(var.portfolio_viewer_domain_names) > 0 ? 1 : 0
+
+  domain_name               = var.viewer_domain_name
+  subject_alternative_names = tolist(var.portfolio_viewer_domain_names)
+  validation_method         = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = var.tags
+}
+
+# The CloudFront Function selects the second origin only for the portfolio
+# host. It also removes a viewer-supplied routing header before origin choice.
+resource "aws_cloudfront_function" "portfolio_routing" {
+  count = var.enable_portfolio_routing
+
+  name    = "${var.name}-portfolio-routing"
+  runtime = "cloudfront-js-2.0"
+  comment = "Routes the portfolio hostname to the shared static origin."
+  publish = true
+  code = templatefile("${path.module}/../../templates/cloudfront-viewer-request.js.tftpl", {
+    portfolio_domain_name          = "www.stentzler.com.br"
+    portfolio_redirect_domain_name = "stentzler.com.br"
+    portfolio_origin_id            = "${var.name}-portfolio-nginx-origin"
+  })
+}
+
 # CloudFront is the public HTTPS entry point; its HTTP origin connection is the
 # accepted MVP trade-off, protected by the SG and the private custom header.
 resource "aws_cloudfront_distribution" "frontend" {
-  enabled             = true
-  is_ipv6_enabled     = true
-  comment             = "${var.name} Next.js frontend"
-  aliases             = var.enable_custom_domain == 1 ? [var.viewer_domain_name] : []
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "${var.name} Next.js frontend"
+  aliases = var.enable_custom_domain == 1 ? concat(
+    [var.viewer_domain_name],
+    var.enable_portfolio_viewer_domains == 1 ? tolist(var.portfolio_viewer_domain_names) : [],
+  ) : []
   price_class         = "PriceClass_200"
   http_version        = "http2and3"
   web_acl_id          = aws_wafv2_web_acl.frontend.arn
@@ -181,6 +216,36 @@ resource "aws_cloudfront_distribution" "frontend" {
     }
   }
 
+  # This origin reaches the same protected Nginx host. Its extra header is
+  # stripped from viewer input by the function and selects port 3001 locally.
+  dynamic "origin" {
+    for_each = var.enable_portfolio_routing == 1 ? [1] : []
+
+    content {
+      domain_name = var.origin_domain_name
+      origin_id   = "${var.name}-portfolio-nginx-origin"
+
+      custom_header {
+        name  = "X-Caged-Origin-Verify"
+        value = data.aws_ssm_parameter.origin_verification.value
+      }
+
+      custom_header {
+        name  = "X-Portfolio-Origin"
+        value = "portfolio"
+      }
+
+      custom_origin_config {
+        http_port                = 80
+        https_port               = 443
+        origin_protocol_policy   = "http-only"
+        origin_read_timeout      = 60
+        origin_keepalive_timeout = 5
+        origin_ssl_protocols     = ["TLSv1.2"]
+      }
+    }
+  }
+
   default_cache_behavior {
     allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods           = ["GET", "HEAD"]
@@ -189,6 +254,15 @@ resource "aws_cloudfront_distribution" "frontend" {
     compress                 = true
     cache_policy_id          = aws_cloudfront_cache_policy.dynamic.id
     origin_request_policy_id = aws_cloudfront_origin_request_policy.nextjs.id
+
+    dynamic "function_association" {
+      for_each = var.enable_portfolio_routing == 1 ? [aws_cloudfront_function.portfolio_routing[0].arn] : []
+
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value
+      }
+    }
   }
 
   # Next.js static build assets have hashed names, so immutable caching is safe.
@@ -200,6 +274,15 @@ resource "aws_cloudfront_distribution" "frontend" {
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+
+    dynamic "function_association" {
+      for_each = var.enable_portfolio_routing == 1 ? [aws_cloudfront_function.portfolio_routing[0].arn] : []
+
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value
+      }
+    }
   }
 
   # Image optimization is cacheable, but only with its bounded query-aware key.
@@ -211,6 +294,15 @@ resource "aws_cloudfront_distribution" "frontend" {
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
     cache_policy_id        = aws_cloudfront_cache_policy.next_image.id
+
+    dynamic "function_association" {
+      for_each = var.enable_portfolio_routing == 1 ? [aws_cloudfront_function.portfolio_routing[0].arn] : []
+
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value
+      }
+    }
   }
 
   restrictions {
@@ -222,7 +314,9 @@ resource "aws_cloudfront_distribution" "frontend" {
   viewer_certificate {
     # While no custom domain is enabled, CloudFront serves its default hostname.
     # Once enabled, SNI selects the free ACM certificate for the viewer hostname.
-    acm_certificate_arn            = var.enable_custom_domain == 1 ? aws_acm_certificate.viewer[0].arn : null
+    acm_certificate_arn = var.enable_custom_domain == 1 ? (
+      var.enable_portfolio_viewer_domains == 1 ? aws_acm_certificate.portfolio_viewer[0].arn : aws_acm_certificate.viewer[0].arn
+    ) : null
     cloudfront_default_certificate = var.enable_custom_domain == 0
     minimum_protocol_version       = var.enable_custom_domain == 1 ? "TLSv1.2_2021" : null
     ssl_support_method             = var.enable_custom_domain == 1 ? "sni-only" : null

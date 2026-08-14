@@ -25,6 +25,24 @@ variable "viewer_domain_name" {
   nullable    = true
 }
 
+variable "portfolio_viewer_domain_names" {
+  description = "Additional portfolio viewer hostnames, excluding the existing CAGED viewer hostname."
+  type        = set(string)
+  default     = []
+}
+
+variable "enable_portfolio_viewer_domains" {
+  description = "Whether the validated multi-domain ACM certificate should be attached to CloudFront."
+  type        = number
+  default     = 0
+}
+
+variable "enable_portfolio_routing" {
+  description = "Whether CloudFront should route the canonical portfolio hostname to the shared EC2 portfolio origin."
+  type        = number
+  default     = 0
+}
+
 variable "origin_domain_name" {
   description = "Resolvable EC2 hostname used as the CloudFront custom origin."
   type        = string
